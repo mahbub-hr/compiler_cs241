@@ -106,8 +106,8 @@ def next():
 
 def main(): 
     global sentence
-    sentence = "10 -2 *(3+4) . 7 * 60 .  (63/3)*2-20."
-    #sentence = input("Enter your expression: ")
+    # sentence = "10 -2 *(3+4) . 7 * 60 .  ((63/3))*2-20."
+    sentence = input("Enter your expression: ")
     sentence =''.join(sentence.split())
     next()
     computation()
