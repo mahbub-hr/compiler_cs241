@@ -6,6 +6,9 @@ def my_SyntaxError():
     print("Syntax Error\n")
     pass
 
+def match(token):
+    return Tokenizer.cur_token == token
+    
 def computation():
     res = 0
     tokenizer.next_token() # compuation
@@ -25,7 +28,6 @@ def computation():
     while Tokenizer.cur_token == Tokenizer.SEMICOLON_TOKEN:
         tokenizer.next_token()
         res = E()
-        tokenizer.next_token()
         print(res, "\n")
 
 def E():
@@ -86,7 +88,7 @@ def F():
 
 def main(): 
     global tokenizer
-    sentence = "computation ((2*3)); 46/2."
+    sentence = "computation ((2*3)); 46/2; 10   - 4*3(1+2)."
     #sentence = input("Enter your expression: ")
     tokenizer = Tokenizer(sentence)
     computation()
