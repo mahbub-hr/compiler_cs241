@@ -1,114 +1,238 @@
-class Tokenizer:
-    cur_token = 0
-    DIGIT= ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    LETTER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-    KEYWORD = ["var", "computation"]
-    PERIOD = '.'
-    PLUS = '+'
-    MINUS = '-'
-    TIMES = '*'
-    DIVIDE = '/'
-    LPAREN = '('
-    RPAREN = ')'
-    SEMICOLON = ';'
-    ASSIGNMENT = '<'
-    PERIOD_TOKEN = -1
-    ADDOP = 1
-    SUBOP = 2
-    MULOP = 3
-    DIVIDEOP = 4
-    LPAREN_TOKEN = 5
-    RPAREN_TOKEN = 6
-    KEYWORD_COMPUTATION= 7
-    IDENTIFIER_TOKEN = 8
-    SEMICOLON_TOKEN = 9
-    KEYWORD_VAR = 10
-    ASSIGNOP = 11
-    INTEGER = 12
+cur_token=None
+DIGIT= ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+LETTER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+KEYWORD = ["var", "computation"]
+PERIOD = -1
+ADDOP = 1
+SUBOP = 2
+MULOP = 3
+DIVIDEOP = 4
+LPAREN = 5
+RPAREN = 6
+COMPUTATION= 7
+IDENTIFIER = 8
+SEMICOLON = 9
+VAR = 10
+ASSIGNOP = 11
+INTEGER = 12
+LSQR = 13
+RSQR = 14
+LCURL = 15
+RCURL = 16
+COMMA = 17
+EQOP = 18
+NOTEQOP = 19
+LEQOP = 20
+GEQOP = 21
+LTOP = 22
+GTOP = 23
+LET = 24
+CALL = 25
+IF = 26
+THEN = 27
+ELSE = 28
+FI = 29
+WHILE = 30
+DO = 31
+OD = 32
+RETURN = 33
+ARRAY = 34
+VOID = 35
+FUNCTION = 36
+MAIN = 37
+line_count = 1
+char_at_line = 0
 
+class Tokenizer:
     def __init__(self, sentence):
-        self.i = 0
+        global cur_token
+        cur_token = -1
+        self.i = -1 
         self.sentence = sentence.strip()
         self.inp = ''
+        self._str = ""
         self.last_val = None 
         self.last_id = ""
 
     def next_token(self):
-        Tokenizer.cur_token = self.parse_token()
-        self.skip_whitespace()
+        global cur_token
+        cur_token = self.parse_token()
+        # print(cur_token, "\n")
 
     def parse_token(self):
         self.next()
-
+        self.skip_whitespace()
 
         if self.is_digit():
             self.last_val = self.get_number()
-            return Tokenizer.INTEGER
+            return INTEGER
 
-        elif self.inp == Tokenizer.PERIOD:
-            return Tokenizer.PERIOD_TOKEN
-        elif self.inp == Tokenizer.SEMICOLON:
-            return Tokenizer.SEMICOLON_TOKEN
+        elif self.match('['):
+            return LSQR
+        
+        elif self.match(']'):
+            return RSQR
+
+        elif self.match('{'):
+            return LCURL
+        
+        elif self.match('}'): return RCURL
+
+        elif self.match(','): return COMMA
+
+        elif self.match('.'):
+            return PERIOD
+
+        elif self.match(';'):
+            return SEMICOLON
             
-        elif self.inp == Tokenizer.PLUS:
-            return Tokenizer.ADDOP
+        elif self.match('+'):
+            return ADDOP
 
-        elif self.inp == Tokenizer.MINUS:
-            return Tokenizer.SUBOP
+        elif self.match('-'):
+            return SUBOP
 
-        elif self.inp == Tokenizer.TIMES:
-            return Tokenizer.MULOP
+        elif self.match('*'):
+            return MULOP
 
-        elif self.inp == Tokenizer.DIVIDE:
-            return Tokenizer.DIVIDEOP
+        elif self.match('/'):
+            return DIVIDEOP
 
-        elif self.inp == Tokenizer.ASSIGNMENT:
-            self.next() # <hyphen>
-            return Tokenizer.ASSIGNOP
+        elif self.match('='):
+            self.next()
+            if not match('='):
+                error("Expected Relational Equality sign")
+            return EQOP
 
-        elif self.inp == Tokenizer.LPAREN:
-            return Tokenizer.LPAREN_TOKEN
+        elif self.match('!'):
+            return NOTEQOP
 
-        elif self.inp == Tokenizer.RPAREN:
-            return Tokenizer.RPAREN_TOKEN
+        elif self.match('<'):
+            self.next()
+            if match('-'):
+                return ASSIGNOP
+
+            elif match('='):
+                return LEQOP
+            
+            else:
+                self.prev()
+                return LTOP
+        
+        elif self.match('>'):
+            self.next()
+
+            if match('='):
+                return GEQOP
+            else:
+                self.prev()
+                return GTOP
+        
+        elif self.match('('):
+            return LPAREN
+
+        elif self.match(')'):
+            return RPAREN
 
         elif self.is_letter():
-            _str = self.get_string()
-            if _str == "computation":
-                return Tokenizer.KEYWORD_COMPUTATION
+            self._str = self.get_string()
+            if self.match_str("computation"):
+                return COMPUTATION
 
-            elif _str == "var":
-                return Tokenizer.KEYWORD_VAR
+            elif self._str == "var":
+                return VAR
+            elif self.match_str("let"):
+                return LET
 
+            elif self.match_str("call"):
+                return CALL
+
+            elif self.match_str("if"):
+                return IF
+
+            elif self.match_str("then"):
+                return THEN
+            
+            elif self.match_str("else"):
+                return ELSE
+            
+            elif self.match_str("fi"):
+                return FI
+            
+            elif self.match_str("while"):
+                return WHILE
+            
+            elif self.match_str("do"):
+                return DO
+            
+            elif self.match_str("od"):
+                return OD
+            
+            elif self.match_str("return"):
+                return RETURN
+
+            elif self.match_str("var"):
+                return VAR
+
+            elif self.match_str("array"):
+                return ARRAY
+            
+            elif self.match_str("void"):
+                return VOID
+
+            elif self.match_str("function"):
+                return FUNCTION
+            
+            elif self.match_str("main"):
+                return MAIN
             else: 
-                self.last_id = _str
-                return Tokenizer.IDENTIFIER_TOKEN
+                self.last_id = self._str
+                return IDENTIFIER
         else:
-            return Tokenizer.PERIOD_TOKEN
+            return PERIOD
 
     def print_token(self):
-        print("Token: " , Tokenizer.cur_token, "\n")
+        print("Token: " , cur_token, "\n")
 
     def next(self):
-
+        self.i = self.i + 1
         if self.i < len(self.sentence):
             self.inp = self.sentence[self.i]
         else:
             self.inp = '$'
 
-        self.i = self.i + 1
+    def prev(self):
+        if self.i > 0:
+            self.i = self.i - 1
+            self.inp = self.sentence[self.i]
 
     def skip_whitespace(self):
-        while self.i < len(self.sentence) and self.sentence[self.i] == ' ':
-            self.i = self.i + 1
+        global line_count
 
+        while self.inp in [' ', '\n', '\t'] and self.inp != '$':
+            if self.inp == ' ':
+                self.next()
+                
+            elif self.inp == '\n':
+                line_count  = line_count + 1
+                print("<NEWLINE>: ", line_count, "\n")
+                self.next()
+
+            else:
+                return
+        
+    def match(self, _char):
+        return self.inp == _char
+
+    def match_str(self, str2):
+        return self._str == str2
 
     def is_digit(self):
-        if self.inp in Tokenizer.DIGIT:
+        if self.inp in DIGIT:
             return True
 
     def is_letter(self):
-        if self.inp in Tokenizer.LETTER:
+        if self.inp in LETTER:
             return True
 
     def get_string(self):
@@ -120,7 +244,7 @@ class Tokenizer:
             identifier = identifier + self.inp
             self.next()
 
-        self.i = self.i -1
+        self.prev()
 
         return identifier
     
@@ -132,5 +256,10 @@ class Tokenizer:
             res = 10*res + int(self.inp)
             self.next()
         
-        self.i = self.i-1
+        self.prev()
+
         return res
+
+    def error(msg):
+        # print(msg, "\n")
+        raise Exception(msg+"\n")
