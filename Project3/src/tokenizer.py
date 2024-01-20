@@ -53,9 +53,14 @@ class Tokenizer:
         self._str = ""
         self.last_val = None 
         self.last_id = ""
+        self.prev_i= -1
+
+    def step_back(self):
+        self.i = self.prev_i
 
     def next_token(self):
         global cur_token
+        self.prev_i= self.i
         cur_token = self.parse_token()
         # print(cur_token, "\n")
 
@@ -215,7 +220,6 @@ class Tokenizer:
                 
             elif self.inp == '\n':
                 line_count  = line_count + 1
-                print("<NEWLINE>: ", line_count, "\n")
                 self.next()
 
             else:
