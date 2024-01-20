@@ -207,6 +207,7 @@ def assingment():
     next()
     designator()
     match_or_error(ASSIGNOP)
+    next()
     E()
 
 def designator():
@@ -273,6 +274,6 @@ def F():
     #     function_call()
 
     else:
-        my_SyntaxError()
+        my_SyntaxError(UNRECOG_SYM)
 
     return res

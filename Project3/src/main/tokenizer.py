@@ -114,7 +114,7 @@ class Tokenizer:
 
         elif self.match('<'):
             self.next()
-            if match('-'):
+            if self.match('-'):
                 return ASSIGNOP
 
             elif match('='):

@@ -1,9 +1,13 @@
+import os
+
 import parser
 import tokenizer
 from symbol_table import symbol_table
 
 def read():
-    with open('./test1.smpl', 'r') as f:
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
+    with open(os.path.join(__location__, './test1.smpl'), 'r') as f:
         return f.read()
 
 def main(): 
