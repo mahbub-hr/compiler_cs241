@@ -1,6 +1,8 @@
+import string
+
 cur_token=None
 DIGIT= ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-LETTER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+# LETTER = list(string.ascii_lwoercase() + string.asc)
 KEYWORD = ["var", "computation"]
 PERIOD = -1
 ADDOP = 1
@@ -117,7 +119,7 @@ class Tokenizer:
             if self.match('-'):
                 return ASSIGNOP
 
-            elif match('='):
+            elif self.match('='):
                 return LEQOP
             
             else:
@@ -236,8 +238,7 @@ class Tokenizer:
             return True
 
     def is_letter(self):
-        if self.inp in LETTER:
-            return True
+        return self.inp.isalpha()
 
     def get_string(self):
         identifier = ""

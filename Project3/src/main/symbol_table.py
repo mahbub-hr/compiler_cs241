@@ -71,7 +71,10 @@ class scope_table:
         return self.table[identifier]
 
     def lookup(self, name):
-        return name in self.table
+        if name in self.table:
+            return self.table[name]
+
+        return None
 
     def print_table(self):
         for key in self.table:
@@ -121,12 +124,13 @@ class symbol_table:
         id = self.id - 1
 
         while id >= 0:
-            if self.table[id].lookup(name):
-                return True
+            symbol = self.table[id].lookup(name)
+            if symbol:
+                return symbol
             
             id = id - 1
 
-        return False
+        return None
 
     def print(self):
         id = self.id-1

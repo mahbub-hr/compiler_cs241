@@ -1,5 +1,5 @@
 DEBUG = True
-UNDEFINE_VAR = "variable undefine"
+UNDEFINE = "undefine"
 ALREADY_DEFINE = "already defined at line #"
 UNRECOG_SYM = "unrecognize symbol"
 def UNEXPECTED_TOKEN(expected, unexpected):

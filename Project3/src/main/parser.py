@@ -30,7 +30,13 @@ def match(token):
     return tokenizer.cur_token == token
     
 def match_or_error(token):
-    if tokenizer.cur_token != token:
+    token_array =[]
+    if isinstance(token, int):
+        token_array.append(token)
+    else:
+        token_array = token
+
+    if tokenizer.cur_token not in token_array:
         my_SyntaxError(UNEXPECTED_TOKEN(token, tokenizer.cur_token))
 
 def last_id():
@@ -42,7 +48,7 @@ def last_val():
 def lookup():
     name = last_id()
     if not table.lookup(name):
-        my_SyntaxError(name + " "+ UNDEFINE_VAR)
+        my_SyntaxError(name + " "+ UNDEFINE)
     
     return True
 
@@ -178,23 +184,27 @@ def stat_sequence():
         '''
         if match(LET) or match(CALL) or match(IF) or match(WHILE) or match(RETURN):
             statement()
-    pass
+
+    if match(LET) or match(CALL) or match(IF) or match(WHILE) or match(RETURN):
+        my_SyntaxError(UNEXPECTED_TOKEN(SEMICOLON, tokenizer.cur_token))
+    
+    return
 
 def statement():
     if match(LET):
         assingment()
     
-    # elif match(CALL):
-    #     function_call()
+    elif match(CALL):
+        func_call()
 
-    # elif match(IF):
-    #     if_statement()
+    elif match(IF):
+        if_statement()
     
-    # elif match(WHILE):
-    #     while_statement()
+    elif match(WHILE):
+        while_statement()
 
-    # elif match(RETURN):
-    #     return_statement()
+    elif match(RETURN):
+        return_statement()
     
     else:
         # stateSequence is optional. So, Not a syntax error
@@ -209,6 +219,61 @@ def assingment():
     match_or_error(ASSIGNOP)
     next()
     E()
+
+def func_call():
+    match_or_error(CALL)
+    next()
+    match_or_error(IDENTIFIER)
+    lookup()
+    next()
+
+    if match(LPAREN):
+        next()
+        E()
+        while match(COMMA):
+            E()
+        
+        match_or_error(RPAREN)
+        next()
+
+def if_statement():
+    match_or_error(IF)
+    next()
+    relation()
+    match_or_error(THEN)
+    next()
+    stat_sequence()
+    
+    if match(ELSE):
+        next()
+        stat_sequence()
+    
+    match_or_error(FI)
+    next()
+
+def while_statement():
+    match_or_error(WHILE)
+    next()
+    relation()
+    match_or_error(DO)
+    next()
+    stat_sequence()
+    match_or_error(OD)
+    next()
+
+def return_statement():
+    match_or_error(RETURN)
+    next()
+    E()
+
+def relation():
+    E()
+    match_or_error([EQOP, NOTEQOP, LTOP, LEQOP, GTOP, GEQOP])
+    next()
+    E()
+
+    return
+    
 
 def designator():
     match_or_error(IDENTIFIER)
@@ -227,10 +292,10 @@ def E():
     while(True):
         if match(ADDOP):
             next()
-            res = res + T()
+            T()
         elif match(SUBOP):
             next()
-            res = res - T()
+            T()
         else:
             break
 
@@ -243,11 +308,11 @@ def T():
     while(True):
         if match(MULOP):
             next()
-            res = res*F()
+            F()
         
         elif match(DIVIDEOP):
             next()
-            res = res/F()
+            F()
 
         else:
             break
@@ -268,12 +333,9 @@ def F():
     
     elif match(IDENTIFIER):
         designator()
-        res = _table.get_val(_tokenizer.last_id)
+        res = table.lookup(_tokenizer.last_id)
 
-    # elif match(CALL):
-    #     function_call()
-
-    else:
-        my_SyntaxError(UNRECOG_SYM)
+    elif match(CALL):
+        func_call()
 
     return res
