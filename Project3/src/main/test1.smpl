@@ -6,6 +6,7 @@ var a, b, c, d, e; {
     let d <- b + c;
     let e <- a + b;
 
-    if a<0 then let d <- d + e ; let a <- d else let d <- e fi;
+    if a<0  then let d <- d + e ; let a <- d else let d <- e fi;
+    while a>0 do let d <- d-e od;
     call OutputNum(a)
 }

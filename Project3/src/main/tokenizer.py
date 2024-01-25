@@ -129,7 +129,7 @@ class Tokenizer:
         elif self.match('>'):
             self.next()
 
-            if match('='):
+            if self.match('='):
                 return GEQOP
             else:
                 self.prev()

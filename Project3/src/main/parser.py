@@ -3,6 +3,7 @@ from tokenizer import *
 from symbol_table import  symbol_info
 import sys
 from Constant import *
+from code_generator import *
 
 _tokenizer = None
 table = None
@@ -14,6 +15,7 @@ def init(tokenizer, symbol_table):
     table = symbol_table
     computation()
 
+# Todo: show warning for unitialized variable
 
 def my_SyntaxError(msg):
     print("Syntax Error:: Line ", tokenizer.line_count ,": ", msg,"\n")
@@ -90,6 +92,7 @@ def computation():
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
+    print_cfg()
 
 def var_declaration():
     if match(VAR):
@@ -192,7 +195,7 @@ def stat_sequence():
 
 def statement():
     if match(LET):
-        assingment()
+        assignment()
     
     elif match(CALL):
         func_call()
@@ -210,23 +213,41 @@ def statement():
         # stateSequence is optional. So, Not a syntax error
         return
 
-def assingment():
+def assignment():
     match_or_error(LET) # Todo: double check. can be removed
     # LET token alredy been checked in the previous funciton
     # So, just consume it.
     next()
     designator()
+    ident = last_id()
     match_or_error(ASSIGNOP)
     next()
-    E()
+    res = E()
+    code_assignment(ident, res)
 
 def func_call():
+    args = []
     match_or_error(CALL)
     next()
     match_or_error(IDENTIFIER)
+    func_name = last_id()
     lookup()
     next()
 
+    if match(LPAREN):
+        next()
+        args.append(E())
+
+        while match(COMMA):
+            next()
+            args.append(E())
+        
+        match_or_error(RPAREN)
+        next()
+
+    return code_func_call(func_name, args)
+
+# Todo: generate code for arguments
     if match(LPAREN):
         next()
         E()
@@ -235,6 +256,8 @@ def func_call():
         
         match_or_error(RPAREN)
         next()
+    
+    return code_func_call(func_name, None)
 
 def if_statement():
     match_or_error(IF)
@@ -263,7 +286,6 @@ def while_statement():
 
 def return_statement():
     match_or_error(RETURN)
-    next()
     E()
 
 def relation():
@@ -276,7 +298,10 @@ def relation():
     
 
 def designator():
+
     match_or_error(IDENTIFIER)
+    lookup()
+    name = last_id()
     next() # [
     while match(LSQR):
         next() 
@@ -284,18 +309,27 @@ def designator():
         match_or_error(RSQR)
         next()
 
+    return
 
 def E():
     res = 0
-    res = T()
+    resL = 0
+    resR = 0
+
+    resL = T()
+    res = resL
 
     while(True):
         if match(ADDOP):
             next()
-            T()
+            resR = F()
+            res = code_f2("add", resL, resR)
+
         elif match(SUBOP):
             next()
-            T()
+            resR = F()
+            res = code_f2("sub", resL, resR)
+
         else:
             break
 
@@ -303,16 +337,22 @@ def E():
 
 def T():
     res =0
-    res = F()
+    resR = 0
+    resL = 0
 
+    resL = F()
+    res = resL
+    
     while(True):
         if match(MULOP):
             next()
-            F()
-        
+            resR = F()
+            res = code_f2("mul", resL, resR)
+
         elif match(DIVIDEOP):
             next()
-            F()
+            resR = F()
+            res = code_f2("div", resL, resR)
 
         else:
             break
@@ -320,22 +360,23 @@ def T():
     return res
 
 def F():
-    res =0
+    res = 0
 
     if match(LPAREN):
         next()
         res = E()
         match_or_error(RPAREN)
+        next()
 
     elif match(INTEGER):
-       res = _tokenizer.last_val
+       res = code_constant(last_val())
        next()
     
     elif match(IDENTIFIER):
         designator()
-        res = table.lookup(_tokenizer.last_id)
+        res = get_var_pointer(last_id())
 
     elif match(CALL):
-        func_call()
+        res = func_call()
 
     return res
