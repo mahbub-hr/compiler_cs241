@@ -47,6 +47,9 @@ def last_id():
 def last_val():
     return _tokenizer.last_val
 
+def cur_token():
+    return tokenizer.cur_token
+
 def lookup():
     name = last_id()
     if not table.lookup(name):
@@ -92,7 +95,7 @@ def computation():
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
-    print_cfg()
+    cfg.generate_dot()
 
 def var_declaration():
     if match(VAR):
@@ -262,22 +265,38 @@ def func_call():
 def if_statement():
     match_or_error(IF)
     next()
-    relation()
+    relOp, pc = relation()
+    prev_bb = get_bid()
+    create_join_bb()
     match_or_error(THEN)
+    jump_ins = code_then(relOp, pc)
     next()
     stat_sequence()
-    
+    left = get_max_bid()
+    add_nop()
     if match(ELSE):
         next()
+        code_else(prev_bb)
         stat_sequence()
+        right = get_max_bid()
+        add_nop()
+        add_join_bb(left, right, jump_ins)
+    
+    else:
+        cfg.add_bb()
+        cfg.tree[cfg.b_id].add_parent(cfg.b_id-2)
+        cfg.tree[cfg.b_id -2].add_children(cfg.b_id)
+        cfg.tree[cfg.b_id-2].e_label[cfg.b_id] = "branch"
+        update_jump(jump_ins)
     
     match_or_error(FI)
+    pop_phi()
     next()
 
 def while_statement():
     match_or_error(WHILE)
     next()
-    relation()
+    relOp, pc = relation()
     match_or_error(DO)
     next()
     stat_sequence()
@@ -286,15 +305,20 @@ def while_statement():
 
 def return_statement():
     match_or_error(RETURN)
-    E()
-
-def relation():
-    E()
-    match_or_error([EQOP, NOTEQOP, LTOP, LEQOP, GTOP, GEQOP])
     next()
     E()
 
-    return
+def relation():
+    resL = 0
+    resR = 0
+    resL = E()
+    match_or_error([EQOP, NOTEQOP, LTOP, LEQOP, GTOP, GEQOP])
+    relOp = cur_token()
+    next()
+    resR = E()
+    pc = code_relation(resL, resR)
+
+    return relOp, pc
     
 
 def designator():
