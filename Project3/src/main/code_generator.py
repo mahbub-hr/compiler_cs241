@@ -2,19 +2,20 @@ from Constant import *
 from tokenizer import *
 
 class instruction:
-    def __init__(self, ins_id, opcode, x, y, bid=-1):
+    def __init__(self, ins_id, opcode, x, y, type_ = None, bid=-1):
         self.ins_id = ins_id 
         self.opcode = opcode
         self.x = x
         self.y = y
         self.bid = bid
+        self.type = type_
 
     def update_y(self, y):
         self.y = y
 
     def __eq__(self, other):
         if isinstance(other, instruction):
-            return self.opcode == other.opcode and self. x == other.x and self.y == other.y
+            return self.type != FUNCTION and self.opcode == other.opcode and self. x == other.x and self.y == other.y
         
         return False
 
@@ -254,7 +255,7 @@ def create_join_bb(bid, var_stat):
     phi[phi_i] = join_bb
 
 # work with if statement
-def add_join_bb(left, right, pc_head):
+def add_join_bb(left, right, jump_ins):
     join_bb = top_phi()
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
@@ -262,7 +263,14 @@ def add_join_bb(left, right, pc_head):
     ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
     cfg.tree[left].table.append(pc)
     cfg.add_join_bb(join_bb, left, "fall-through")
-    ins_array[pc_head].update_y(max(cfg.tree[right].table))
+    jump_to = -1
+    
+    if cfg.tree[right].table:
+        jump_to = max(cfg.tree[right].table)
+    else:
+        jump_to = min(join_bb.table)
+
+    ins_array[jump_ins].update_y(jump_to)
     cfg.add_join_bb(join_bb, right, "branch")
 
 def insert_join_bb_while():
@@ -366,7 +374,7 @@ def code_func_call(name, args_list):
     if name in default_foo:
         name = default_foo[name]
 
-    inst = instruction(pc, name, None, None)
+    inst = instruction(pc, name, None, None, FUNCTION)
     ins_array[pc] = inst
     cfg.add_instruction(pc)
 

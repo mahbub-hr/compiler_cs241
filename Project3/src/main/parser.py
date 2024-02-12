@@ -248,19 +248,10 @@ def func_call():
         match_or_error(RPAREN)
         next()
 
-    return code_func_call(func_name, args)
+    res =  code_func_call(func_name, args)
 
-# Todo: generate code for arguments
-    if match(LPAREN):
-        next()
-        E()
-        while match(COMMA):
-            E()
-        
-        match_or_error(RPAREN)
-        next()
-    
-    return code_func_call(func_name, None)
+    return res
+
 
 def if_statement():
     set_phix(True)
@@ -268,32 +259,34 @@ def if_statement():
     next()
     relation()
     prev_bb = get_bid()
-    create_join_bb(0, cfg.tree[prev_bb].var_stat) # wrong bid for nested case.
+    create_join_bb(0, cfg.tree[prev_bb].var_stat)
     match_or_error(THEN)
     cfg.add_bb()
-    jump_ins = pc -1
+    jump_ins = get_pc()
     next()
     stat_sequence()
     left = get_max_bid()
+    right = 0
     add_nop()
+    
+    code_else(prev_bb)
     if match(ELSE):
         set_phix(False)
         next()
-        code_else(prev_bb)
+        # code_else(prev_bb)
         stat_sequence()
-        right = get_max_bid()
-        add_nop()
-        add_join_bb(left, right, jump_ins)
         set_phix(True)
-
-    # No else block. So close the if block
-    else:
-        cfg.add_bb()
-        cfg.tree[cfg.b_id].add_parent(cfg.b_id-2)
-        cfg.tree[cfg.b_id -2].add_children(cfg.b_id)
-        cfg.tree[cfg.b_id-2].e_label[cfg.b_id] = "branch"
-        update_jump(jump_ins)
     
+    right = get_max_bid()
+
+    # # No else block. So close the if block
+    # else:
+    #     cfg.add_bb()
+    #     cfg.tree[cfg.b_id].add_parent(cfg.b_id-2)
+    #     cfg.tree[cfg.b_id -2].add_children(cfg.b_id)
+    #     cfg.tree[cfg.b_id-2].e_label[cfg.b_id] = "branch"
+    #     update_jump(jump_ins)
+    add_join_bb(left, right, jump_ins)
     match_or_error(FI)
     pop_phi()
     next()
