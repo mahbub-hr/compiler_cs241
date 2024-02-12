@@ -1,0 +1,106 @@
+<?xml version="1.0" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="612pt" height="449pt" viewBox="0.00 0.00 611.52 448.67">
+<g id="graph0" class="graph" transform="translate(4,444.6700134277344) scale(1)" data-name="G">
+
+<polygon fill="white" stroke="none" points="-4,4 -4,-444.67 607.52,-444.67 607.52,4 -4,4" style=""/>
+<!-- bb0 -->
+<g id="node1" class="node" pointer-events="visible" data-name="bb0">
+
+<polygon fill="none" stroke="black" points="163.65,-365.77 163.65,-440.17 326.75,-440.17 326.75,-365.77 163.65,-365.77" style=""/>
+<text text-anchor="middle" x="184.49" y="-398.77" font-family="Times,serif" font-size="14.00" style="">BB0</text>
+<polyline fill="none" stroke="black" points="205.33,-365.77 205.33,-440.17" style=""/>
+<text text-anchor="middle" x="256.29" y="-423.57" font-family="Times,serif" font-size="14.00" style="">-1: const # (10)</text>
+<polyline fill="none" stroke="black" points="205.33,-415.37 307.25,-415.37" style=""/>
+<text text-anchor="middle" x="256.29" y="-398.77" font-family="Times,serif" font-size="14.00" style="">-2: const # (1)</text>
+<polyline fill="none" stroke="black" points="205.33,-390.57 307.25,-390.57" style=""/>
+<text text-anchor="middle" x="256.29" y="-373.97" font-family="Times,serif" font-size="14.00" style="">-3: const # (2)</text>
+<polyline fill="none" stroke="black" points="307.25,-365.77 307.25,-440.17" style=""/>
+<text text-anchor="middle" x="317" y="-399.07" font-family="Times,serif" font-size="14.00" style=""> </text>
+</g>
+<!-- bb1 -->
+<g id="node2" class="node" pointer-events="visible" data-name="bb1">
+
+<polygon fill="none" stroke="black" points="92.33,-262.37 92.33,-311.97 398.07,-311.97 398.07,-262.37 92.33,-262.37" style=""/>
+<text text-anchor="middle" x="113.17" y="-282.97" font-family="Times,serif" font-size="14.00" style="">BB1</text>
+<polyline fill="none" stroke="black" points="134.01,-262.37 134.01,-311.97" style=""/>
+<text text-anchor="middle" x="179.13" y="-295.37" font-family="Times,serif" font-size="14.00" style="">1: read</text>
+<polyline fill="none" stroke="black" points="134.01,-287.17 224.26,-287.17" style=""/>
+<text text-anchor="middle" x="179.13" y="-270.57" font-family="Times,serif" font-size="14.00" style="">2: add (1) (1)</text>
+<polyline fill="none" stroke="black" points="224.26,-262.37 224.26,-311.97" style=""/>
+<text text-anchor="middle" x="311.17" y="-283.37" font-family="Times,serif" font-size="14.00" style="">'a': 1, 'b': 1, 'c': 1, 'd': 2, 'e': 2</text>
+</g>
+<!-- bb0&#45;&gt;bb1 -->
+<g id="edge1" class="edge" data-name="bb0-&gt;bb1">
+
+<path fill="none" stroke="black" d="M245.2,-365.27C245.2,-346.02 245.2,-338.61 245.2,-323.62" style=""/>
+<polygon fill="black" stroke="black" points="248.7,-323.98 245.2,-313.98 241.7,-323.98 248.7,-323.98" style=""/>
+<text text-anchor="middle" x="278.64" y="-334.67" font-family="Times,serif" font-size="14.00" style="">fall-through</text>
+</g>
+<!-- bb2 -->
+<g id="node3" class="node" pointer-events="visible" data-name="bb2">
+
+<polygon fill="none" stroke="black" points="88.06,-134.17 88.06,-208.57 402.35,-208.57 402.35,-134.17 88.06,-134.17" style=""/>
+<text text-anchor="middle" x="108.89" y="-167.17" font-family="Times,serif" font-size="14.00" style="">BB2</text>
+<polyline fill="none" stroke="black" points="129.73,-134.17 129.73,-208.57" style=""/>
+<text text-anchor="middle" x="179.13" y="-191.97" font-family="Times,serif" font-size="14.00" style="">6: phi (1) (7)</text>
+<polyline fill="none" stroke="black" points="129.73,-183.77 228.53,-183.77" style=""/>
+<text text-anchor="middle" x="179.13" y="-167.17" font-family="Times,serif" font-size="14.00" style="">3: cmp (6) (-1)</text>
+<polyline fill="none" stroke="black" points="129.73,-158.97 228.53,-158.97" style=""/>
+<text text-anchor="middle" x="179.13" y="-142.37" font-family="Times,serif" font-size="14.00" style="">4: bge (3) (9)</text>
+<polyline fill="none" stroke="black" points="228.53,-134.17 228.53,-208.57" style=""/>
+<text text-anchor="middle" x="315.44" y="-167.47" font-family="Times,serif" font-size="14.00" style="">'a': 6, 'b': 1, 'c': 1, 'd': 2, 'e': 2</text>
+</g>
+<!-- bb1&#45;&gt;bb2 -->
+<g id="edge2" class="edge" data-name="bb1-&gt;bb2">
+
+<path fill="none" stroke="black" d="M245.2,-261.87C245.2,-242.62 245.2,-235.21 245.2,-220.22" style=""/>
+<polygon fill="black" stroke="black" points="248.7,-220.58 245.2,-210.58 241.7,-220.58 248.7,-220.58" style=""/>
+<text text-anchor="middle" x="278.64" y="-231.27" font-family="Times,serif" font-size="14.00" style="">fall-through</text>
+</g>
+<!-- bb3 -->
+<g id="node4" class="node" pointer-events="visible" data-name="bb3">
+
+<polygon fill="none" stroke="black" points="0,-5.97 0,-80.37 310.4,-80.37 310.4,-5.97 0,-5.97" style=""/>
+<text text-anchor="middle" x="20.84" y="-38.97" font-family="Times,serif" font-size="14.00" style="">BB3</text>
+<polyline fill="none" stroke="black" points="41.68,-5.97 41.68,-80.37" style=""/>
+<text text-anchor="middle" x="89.13" y="-63.77" font-family="Times,serif" font-size="14.00" style="">5: add (6) (-2)</text>
+<polyline fill="none" stroke="black" points="41.68,-55.57 136.59,-55.57" style=""/>
+<text text-anchor="middle" x="89.13" y="-38.97" font-family="Times,serif" font-size="14.00" style="">7: add (5) (-3)</text>
+<polyline fill="none" stroke="black" points="41.68,-30.77 136.59,-30.77" style=""/>
+<text text-anchor="middle" x="89.13" y="-14.17" font-family="Times,serif" font-size="14.00" style="">8: bra (6)</text>
+<polyline fill="none" stroke="black" points="136.59,-5.97 136.59,-80.37" style=""/>
+<text text-anchor="middle" x="223.5" y="-39.27" font-family="Times,serif" font-size="14.00" style="">'a': 7, 'b': 1, 'c': 1, 'd': 2, 'e': 2</text>
+</g>
+<!-- bb2&#45;&gt;bb3 -->
+<g id="edge3" class="edge" data-name="bb2-&gt;bb3">
+
+<path fill="none" stroke="black" d="M245.2,-133.67C245.2,-93.37 182.35,-146.45 156.33,-115.67 149.08,-107.08 151.77,-100.77 153.78,-92.03" style=""/>
+<polygon fill="black" stroke="black" points="157.22,-92.73 155.01,-82.37 150.28,-91.85 157.22,-92.73" style=""/>
+<text text-anchor="middle" x="190.64" y="-103.07" font-family="Times,serif" font-size="14.00" style="">fall-through</text>
+</g>
+<!-- bb4 -->
+<g id="node5" class="node" pointer-events="visible" data-name="bb4">
+
+<polygon fill="none" stroke="black" points="328.88,-25.17 328.88,-61.17 603.52,-61.17 603.52,-25.17 328.88,-25.17" style=""/>
+<text text-anchor="middle" x="349.72" y="-38.97" font-family="Times,serif" font-size="14.00" style="">BB4</text>
+<polyline fill="none" stroke="black" points="370.56,-25.17 370.56,-61.17" style=""/>
+<text text-anchor="middle" x="400.13" y="-39.07" font-family="Times,serif" font-size="14.00" style="">9: write</text>
+<polyline fill="none" stroke="black" points="429.71,-25.17 429.71,-61.17" style=""/>
+<text text-anchor="middle" x="516.62" y="-39.07" font-family="Times,serif" font-size="14.00" style="">'a': 6, 'b': 1, 'c': 1, 'd': 2, 'e': 2</text>
+</g>
+<!-- bb2&#45;&gt;bb4 -->
+<g id="edge4" class="edge" data-name="bb2-&gt;bb4">
+
+<path fill="none" stroke="black" d="M245.2,-133.67C245.2,-113.35 409.56,-125.76 427.2,-115.67 449.15,-103.11 462.18,-94.36 465.41,-73.47" style=""/>
+<polygon fill="black" stroke="black" points="468.89,-73.9 466.1,-63.68 461.9,-73.41 468.89,-73.9" style=""/>
+<text text-anchor="middle" x="470.25" y="-103.07" font-family="Times,serif" font-size="14.00" style="">branch</text>
+</g>
+<!-- bb3&#45;&gt;bb2 -->
+<g id="edge5" class="edge" data-name="bb3-&gt;bb2">
+
+<path fill="none" stroke="black" d="M155.2,-5.17C155.2,3.45 303.9,-0.5 310.4,-6.17 335.69,-28.21 303.14,-52.6 321.2,-80.87 344.38,-117.12 381.83,-95.84 402.35,-133.67 418.18,-162.85 425.75,-184.82 402.35,-208.37 397.2,-213.54 290.85,-216.87 256.09,-212.72" style=""/>
+<polygon fill="black" stroke="black" points="257.24,-209.41 246.65,-209.81 255.18,-216.1 257.24,-209.41" style=""/>
+<text text-anchor="middle" x="404.25" y="-103.07" font-family="Times,serif" font-size="14.00" style="">branch</text>
+</g>
+</g>
+</svg>

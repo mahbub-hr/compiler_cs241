@@ -1,16 +1,19 @@
 main
 var a, b, c, d, e; {
     let a <- call InputNum();
-    let b <- a;
-    let c <- b;
-    let d <- b + c;
-    let e <- a + b;
+    let b <- call InputNum();
+    let c <- call InputNum();
+    let d <- b;
 
-    if a<0  then
-        if b < 0 then let a <- 0 else let a <-0 fi;
-    let d <- d + e ; let a <- d else let d <- e 
-    
-    fi;
-
+    while a < 100 do
+        if b < 0 then
+            let b <- b + 1
+            if c < 0 then
+                c <- c + 1
+            fi;
+        fi;
+        a <- a + 1; 
+        b <- b + 1;
+    od;
     call OutputNum(a)
 }

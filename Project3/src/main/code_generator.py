@@ -25,9 +25,9 @@ class instruction:
 
         
 class BB:
-
     def __init__(self, id):
-        self.table = [] 
+        self.table = []
+        self.phi_idx = -1
         self.op_ins = {}     
         self.var_stat = {}
         self.phi = {}
@@ -46,6 +46,10 @@ class BB:
         self.table.append(ins_id)
 
         return ins_id
+    
+    def append_phi(self, ins_id):
+        self.phi_idx = self.phi_idx + 1
+        self.table.insert(self.phi_idx, ins_id)
 
     def append_const(self, ins_id):
         for i in self.table:
@@ -70,6 +74,17 @@ class BB:
 
     def add_nop(self, ins_id):
         self.append(ins_id)
+
+    def update_xold(self, xold, xnew):
+        for i in self.table:
+            ins = ins_array[i]
+            if ins.opcode != "phi":
+                if ins.x == xold:
+                    ins.x = xnew
+
+                if ins.y == xold:
+                    ins.y = xnew
+                
 
     def dot_node(self):
         ins_str = ""
@@ -121,6 +136,9 @@ class CFG:
         self.tree[self.b_id] = BB(self.b_id)
         self.add_bb()
 
+    '''
+    Add an immidiate basic block just after the last block
+    '''
     def add_bb(self):
         parent = self.b_id
         self.b_id = self.b_id + 1
@@ -128,7 +146,7 @@ class CFG:
         self.tree[self.b_id-1].add_children(self.b_id)
         self.tree[self.b_id].add_parent(self.b_id-1)
         self.tree[self.b_id].var_stat = dict(self.tree[parent].var_stat)
-        self.tree[self.b_id-1].e_label[self.b_id] = "fallthrough" 
+        self.tree[self.b_id-1].e_label[self.b_id] = "fall-through" 
         return self.b_id
 
     def add_bb_man(self, bid, bid_prev, e_label):
@@ -168,6 +186,18 @@ class CFG:
     def add_const_instruction(self, ins_id):
         return self.tree[0].append_const(ins_id)
 
+    def update_xold(self, join_bid, xold, xnew):
+        node = [join_bid]
+        visited = {}
+
+        while node:
+            id = node.pop()
+            node = node + self.tree[id].next
+            if id not in visited:
+                visited[id] = True
+                self.tree[id].update_xold(xold, xnew)
+
+
     def generate_dot(self):
         id = 0
         node = ""
@@ -199,8 +229,12 @@ ins_array = {}
 pc = 0
 neg_pc = 0
 phi= {}
+phi_x = True
 
 phi_i=-1
+
+def get_pc():
+    return pc
 
 def get_bid():
     return cfg.get_bid()
@@ -208,15 +242,21 @@ def get_bid():
 def get_max_bid():
     return max(cfg.tree.keys())
 
-def create_join_bb():
+def set_phix(val):
+    global phi_x 
+    phi_x = val
+
+def create_join_bb(bid, var_stat):
     global phi_i
-    join_bb = BB(0) # VAR STATE?
+    join_bb = BB(bid) 
+    join_bb.var_stat = dict(var_stat)# VAR STATE?
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
 
+# work with if statement
 def add_join_bb(left, right, pc_head):
     join_bb = top_phi()
-    join_bb.id = max([left, right], key = lambda x: float('-inf') if x is None else x)+1
+    join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
     inc_pc()
     ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
@@ -224,6 +264,22 @@ def add_join_bb(left, right, pc_head):
     cfg.add_join_bb(join_bb, left, "fall-through")
     ins_array[pc_head].update_y(max(cfg.tree[right].table))
     cfg.add_join_bb(join_bb, right, "branch")
+
+def insert_join_bb_while():
+    global phi_i
+    join_bb = cfg.tree[cfg.b_id]
+    phi_i = phi_i + 1
+    phi[phi_i] = join_bb
+
+def link_up_while(join_bid, jump_ins):
+    inc_pc()
+    ins_array[pc] = instruction(pc, "bra", cfg.tree[join_bid].table[0], None)
+    cfg.add_instruction(pc)
+    cfg.add_bb_man(join_bid, get_bid(), "branch")
+    ins_array[jump_ins].update_y(pc+1)
+    bb = cfg.create_bb()
+    bb.var_stat = dict(cfg.tree[join_bid].var_stat)
+    cfg.add_bb_man(bb.id, join_bid, "branch")
 
 def pop_phi():
     global phi_i
@@ -272,19 +328,30 @@ def code_assignment(identifier, ins_id):
     # is there any case where xold is not in the dictionary
     xold = cfg.get_var_pointer(identifier)
     cfg.update_var(identifier, ins_id)
-    ins_id = None
-
+    temp =0
     if phi_i > -1: 
         join_bb = phi[phi_i]
         if identifier not in join_bb.phi:
             inc_pc()
-            ins_array[pc] = instruction(pc, "phi", ins_id, xold)
+            temp = pc
+            ins_array[pc] = instruction(pc, "phi", xold, xold)
             join_bb.phi[identifier] = pc
-            ins_id = pc
-            join_bb.append(ins_id)
+            join_bb.append_phi(pc)
+            join_bb.update_var(identifier, pc)
+            # update all uses of xold by phi
+            cfg.update_xold(join_bb.id, xold, pc)
         
-        ins_id = join_bb.phi[identifier]
-        join_bb.update_var(identifier, pc)
+        else:
+            temp = join_bb.phi[identifier]
+        
+        # left operand or right operand
+        if phi_x:
+            ins_array[temp].x = ins_id
+        
+        else:
+            ins_array[temp].y = ins_id
+
+        # update all xold value
 
     return
 
@@ -310,25 +377,22 @@ def code_f2(opcode, x, y):
     ins_array[pc] = instruction(pc, opcode, x, y)
     return cfg.add_instruction(pc)
 
-def code_then(relOp, br_x):
-    addr = 0 # Todo: need to update
-    inc_pc()
-    ins = instruction(pc, relOp_fall[relOp], br_x, addr)
-    ins_array[pc] = ins
-    cfg.add_instruction(pc)
-    cfg.add_bb()
 
-    return pc
 
 def code_else(prev_bb):
     bb = cfg.create_bb()
+    bb.var_stat = dict(cfg.tree[prev_bb].var_stat)
     cfg.add_bb_man(bb.id, prev_bb, "branch")
     return bb.id
 
-def code_relation(resL, resR):
+def code_relation(resL, resR, relOp):
     inc_pc()
     ins_array[pc] = instruction(pc, "cmp", resL, resR)
     cfg.add_instruction(pc)
+    inc_pc()
+    ins = instruction(pc, relOp_fall[relOp], pc-1, "follow")
+    ins_array[pc] = ins
+    cfg.add_instruction(pc)   
     return pc
 
 def print_cfg():

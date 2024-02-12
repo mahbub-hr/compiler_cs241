@@ -107,8 +107,8 @@ class Tokenizer:
 
         elif self.match('='):
             self.next()
-            if not match('='):
-                error("Expected Relational Equality sign")
+            if not self.match('='):
+                print("Expected Relational Equality sign")
             return EQOP
 
         elif self.match('!'):

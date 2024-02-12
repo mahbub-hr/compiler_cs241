@@ -263,25 +263,30 @@ def func_call():
     return code_func_call(func_name, None)
 
 def if_statement():
+    set_phix(True)
     match_or_error(IF)
     next()
-    relOp, pc = relation()
+    relation()
     prev_bb = get_bid()
-    create_join_bb()
+    create_join_bb(0, cfg.tree[prev_bb].var_stat) # wrong bid for nested case.
     match_or_error(THEN)
-    jump_ins = code_then(relOp, pc)
+    cfg.add_bb()
+    jump_ins = pc -1
     next()
     stat_sequence()
     left = get_max_bid()
     add_nop()
     if match(ELSE):
+        set_phix(False)
         next()
         code_else(prev_bb)
         stat_sequence()
         right = get_max_bid()
         add_nop()
         add_join_bb(left, right, jump_ins)
-    
+        set_phix(True)
+
+    # No else block. So close the if block
     else:
         cfg.add_bb()
         cfg.tree[cfg.b_id].add_parent(cfg.b_id-2)
@@ -296,11 +301,18 @@ def if_statement():
 def while_statement():
     match_or_error(WHILE)
     next()
-    relOp, pc = relation()
+    join_bid = cfg.add_bb()
+    relation()
+    jump_ins = get_pc()
+    insert_join_bb_while()
     match_or_error(DO)
+    cfg.add_bb()
+    set_phix(False)
     next()
     stat_sequence()
+    link_up_while(join_bid, jump_ins)
     match_or_error(OD)
+    
     next()
 
 def return_statement():
@@ -316,9 +328,9 @@ def relation():
     relOp = cur_token()
     next()
     resR = E()
-    pc = code_relation(resL, resR)
+    pc = code_relation(resL, resR, relOp)
 
-    return relOp, pc
+    return
     
 
 def designator():
