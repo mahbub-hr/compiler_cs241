@@ -259,12 +259,17 @@ def add_join_bb(left, right, jump_ins):
     join_bb = top_phi()
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
-    inc_pc()
-    ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
-    cfg.tree[left].table.append(pc)
+
+    # if there is else block, then add bra instruction
+    # to the if block
+    if right - left > 1 or cfg.tree[right].table:
+        inc_pc()
+        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
+        cfg.tree[left].table.append(pc)
+
     cfg.add_join_bb(join_bb, left, "fall-through")
     jump_to = -1
-    
+
     if cfg.tree[right].table:
         jump_to = max(cfg.tree[right].table)
     else:
@@ -337,8 +342,11 @@ def code_assignment(identifier, ins_id):
     xold = cfg.get_var_pointer(identifier)
     cfg.update_var(identifier, ins_id)
     temp =0
-    if phi_i > -1: 
-        join_bb = phi[phi_i]
+    i = phi_i
+
+    while i > -1: 
+        join_bb = phi[i]
+        i = i -1
         if identifier not in join_bb.phi:
             inc_pc()
             temp = pc
@@ -347,7 +355,7 @@ def code_assignment(identifier, ins_id):
             join_bb.append_phi(pc)
             join_bb.update_var(identifier, pc)
             # update all uses of xold by phi
-            cfg.update_xold(join_bb.id, xold, pc)
+            # cfg.update_xold(join_bb.id, xold, pc)
         
         else:
             temp = join_bb.phi[identifier]
@@ -359,7 +367,7 @@ def code_assignment(identifier, ins_id):
         else:
             ins_array[temp].y = ins_id
 
-        # update all xold value
+        ins_id = pc
 
     return
 
