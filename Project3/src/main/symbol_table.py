@@ -31,6 +31,15 @@ class symbol_info:
 
         return var
 
+    # def const_symbol(name="Constant", val=0, kind = CONSTANT):
+    #     const = symbol_info()
+    #     const.name = name
+    #     const.val = val
+    #     const.kind = kind
+    #     const.line_count = tokenizer.line_count
+
+    #     return const
+
     def __str__(self):
         return f"<{self.kind}, {self.val}, {self.param_list}, {self.return_type}, {self.line_count}>"
 

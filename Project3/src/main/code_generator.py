@@ -1,5 +1,11 @@
 from Constant import *
 from tokenizer import *
+from symbol_table import *
+class Result:
+    def __init__(self, res, name, kind):
+        self.res = res
+        self.name = name
+        self.kind = kind
 
 class instruction:
     def __init__(self, ins_id, opcode, x, y, type_ = None, bid=-1):
@@ -29,9 +35,10 @@ class BB:
     def __init__(self, id):
         self.table = []
         self.phi_idx = -1
-        self.op_ins = {}     
+        self.var_usage = {}     
         self.var_stat = {}
         self.phi = {}
+        self.xold = {}
         self.id = id
         self.next = []
         self.prev = []
@@ -72,19 +79,29 @@ class BB:
     
     def update_var(self, var, ins_id):
         self.var_stat[var] = ins_id
+    
+    def update_var_usage(self, var, ins_id):
+        if ins_id not in self.var_usage:
+            self.var_usage[var] = [ins_id]
+        else:
+            self.var_usage[var].append(ins_id)
 
     def add_nop(self, ins_id):
         self.append(ins_id)
 
-    def update_xold(self, xold, xnew):
-        for i in self.table:
-            ins = ins_array[i]
-            if ins.opcode != "phi":
-                if ins.x == xold:
-                    ins.x = xnew
+    def update_xold(self, var, xold, xnew):
+        try:
+            for i in self.var_usage[var]:
+                ins = ins_array[i]
+                if ins.opcode != "phi":
+                    if ins.x == xold:
+                        ins.x = xnew
 
-                if ins.y == xold:
-                    ins.y = xnew
+                    if ins.y == xold:
+                        ins.y = xnew
+
+        except:
+            pass
                 
 
     def dot_node(self):
@@ -94,8 +111,8 @@ class BB:
             ins_str = ins_str + str(ins_array[i]) + "|"
         
         ins_str = "{" + ins_str[:len(ins_str)-1] + "}"
-
-        return f"bb{self.id}[shape=record, label=\"<b>BB{self.id}|{ins_str}|{str(self.var_stat)}\"];"
+        state = "{"+ str(self.var_stat) + '}' +'|'+str(self.var_usage) + '}'
+        return f"bb{self.id}[shape=record, label=\"<b>BB{self.id}|{ins_str}|{state}\"];"
 
     def dot_edge(self):
         str_ = ""
@@ -174,6 +191,9 @@ class CFG:
 
     def update_var(self, var, ins_id):
         self.tree[self.b_id].update_var(var, ins_id)
+    
+    def update_var_usage(self, var, ins_id):
+        self.tree[self.b_id].update_var_usage(var, ins_id)
 
     def get_var_pointer(self, var):
         return self.tree[self.b_id].get_var_pointer(var)
@@ -187,7 +207,8 @@ class CFG:
     def add_const_instruction(self, ins_id):
         return self.tree[0].append_const(ins_id)
 
-    def update_xold(self, join_bid, xold, xnew):
+#  can make it efficient: start bid and end bid
+    def update_xold(self, var, join_bid, xold, xnew):
         node = [join_bid]
         visited = {}
 
@@ -196,7 +217,7 @@ class CFG:
             node = node + self.tree[id].next
             if id not in visited:
                 visited[id] = True
-                self.tree[id].update_xold(xold, xnew)
+                self.tree[id].update_xold(var, xold, xnew)
 
 
     def generate_dot(self):
@@ -227,6 +248,7 @@ relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", L
 default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
 cfg = CFG()
 ins_array = {}
+pseudo_ins = {}
 pc = 0
 neg_pc = 0
 phi= {}
@@ -246,6 +268,9 @@ def get_max_bid():
 def set_phix(val):
     global phi_x 
     phi_x = val
+
+def update_var_usage(identifier, ins_id):
+    cfg.tree[get_bid()]
 
 def create_join_bb(bid, var_stat):
     global phi_i
@@ -340,7 +365,11 @@ def add_nop():
 def code_assignment(identifier, ins_id):
     # is there any case where xold is not in the dictionary
     xold = cfg.get_var_pointer(identifier)
-    cfg.update_var(identifier, ins_id)
+    if isinstance(ins_id, symbol_info):
+        ins_id = ins_id.val
+
+    cfg.update_var(identifier, ins_id) 
+
     temp =0
     i = phi_i
 
@@ -355,7 +384,8 @@ def code_assignment(identifier, ins_id):
             join_bb.append_phi(pc)
             join_bb.update_var(identifier, pc)
             # update all uses of xold by phi
-            # cfg.update_xold(join_bb.id, xold, pc)
+            if join_bb.id != -1:
+                cfg.update_xold(identifier,join_bb.id, xold, pc)
         
         else:
             temp = join_bb.phi[identifier]
@@ -390,7 +420,17 @@ def code_func_call(name, args_list):
 
 def code_f2(opcode, x, y):
     inc_pc()
+
+    if isinstance(x, symbol_info):
+        cfg.update_var_usage(x.name, pc)
+        x = x.val
+
+    if isinstance(y, symbol_info):
+        cfg.update_var_usage(y.name, pc)
+        y = y.val
+
     ins_array[pc] = instruction(pc, opcode, x, y)
+
     return cfg.add_instruction(pc)
 
 
@@ -403,6 +443,15 @@ def code_else(prev_bb):
 
 def code_relation(resL, resR, relOp):
     inc_pc()
+
+    if isinstance(resL, symbol_info):
+        cfg.update_var_usage(resL.name, pc)
+        resL = resL.val
+
+    if isinstance(resR, symbol_info):
+        cfg.update_var_usage()
+        resR = resR.val
+
     ins_array[pc] = instruction(pc, "cmp", resL, resR)
     cfg.add_instruction(pc)
     inc_pc()

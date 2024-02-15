@@ -43,7 +43,8 @@ ARRAY = 34
 VOID = 35
 FUNCTION = 36
 MAIN = 37
-
+CONSTANT = 38
+EXPRESSION = 39
 # Code Generator
 # opcode
 opcode = {

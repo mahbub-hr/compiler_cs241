@@ -52,10 +52,11 @@ def cur_token():
 
 def lookup():
     name = last_id()
-    if not table.lookup(name):
+    symbol = table.lookup(name)
+    if not symbol:
         my_SyntaxError(name + " "+ UNDEFINE)
     
-    return True
+    return symbol
 
 def insert_var():
     symbol = table.insert(last_id(), symbol_info.var_symbol(last_id(), 0))
@@ -259,7 +260,7 @@ def if_statement():
     next()
     relation()
     prev_bb = get_bid()
-    create_join_bb(0, cfg.tree[prev_bb].var_stat)
+    create_join_bb(-1, cfg.tree[prev_bb].var_stat)
     match_or_error(THEN)
     cfg.add_bb()
     jump_ins = get_pc()
@@ -346,17 +347,20 @@ def E():
     resR = 0
 
     resL = T()
+    # assert isinstance(resL)==True, "Should be a symbol"
     res = resL
 
     while(True):
         if match(ADDOP):
             next()
             resR = F()
+            # assert isinstance(resR) == True, "should be a symbol"
             res = code_f2("add", resL, resR)
 
         elif match(SUBOP):
             next()
             resR = F()
+            # assert isinstance(resR) == True, "should be a symbol"
             res = code_f2("sub", resL, resR)
 
         else:
@@ -365,31 +369,38 @@ def E():
     return res
 
 def T():
+    # symbol = symbol_info()
     res =0
     resR = 0
     resL = 0
-
+    
     resL = F()
+    # assert isinstance(resL) == True, "Should be a symbol"
     res = resL
     
     while(True):
         if match(MULOP):
             next()
             resR = F()
+            # assert isinstance(resR)==True, "Should be a symbol"
             res = code_f2("mul", resL, resR)
 
         elif match(DIVIDEOP):
             next()
             resR = F()
+            # assert isinstance(resR) == True, "Should be a symbol"
             res = code_f2("div", resL, resR)
 
         else:
             break
+    
+    # symbol.val = res
 
     return res
 
 def F():
     res = 0
+    symbol = symbol_info()
 
     if match(LPAREN):
         next()
@@ -403,9 +414,15 @@ def F():
     
     elif match(IDENTIFIER):
         designator()
+        symbol = lookup()
         res = get_var_pointer(last_id())
+        symbol.val = res
+        res = symbol
 
     elif match(CALL):
+        symbol = lookup()
         res = func_call()
+        
+    # symbol.val = res
 
     return res

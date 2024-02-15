@@ -1,19 +1,26 @@
 digraph G{
-bb0[shape=record, label="<b>BB0|{-1: const # (0) |-2: const # (1) }|{}"];
-bb1[shape=record, label="<b>BB1|{1: read  |2: read  |3: read  |4: cmp (2) (-1)|5: bge (4) (7)}|{'a': 1, 'b': 2, 'c': 3, 'd': 2}"];
-bb2[shape=record, label="<b>BB2|{6: add (2) (-2)|8: cmp (3) (-1)|9: bge (8) (13)}|{'a': 1, 'b': 6, 'c': 3, 'd': 2}"];
-bb3[shape=record, label="<b>BB3|{10: add (3) (-2)|16: bra (11) }|{'a': 1, 'b': 6, 'c': 10, 'd': 2}"];
-bb4[shape=record, label="<b>BB4|{13: add (1) (-2)}|{'a': 13, 'b': 6, 'c': 3, 'd': 2}"];
-bb5[shape=record, label="<b>BB5|{11: phi (10) (3)|14: phi (1) (13)|17: add (6) (-2)}|{'a': 14, 'b': 6, 'c': 11, 'd': 17}"];
-bb6[shape=record, label="<b>BB6|{}|{'a': 1, 'b': 2, 'c': 3, 'd': 2}"];
-bb7[shape=record, label="<b>BB7|{7: phi (6) (2)|12: phi (11) (3)|15: phi (1) (14)|18: phi (17) (2)|19: write  |20: write  |21: write  }|{'a': 15, 'b': 7, 'c': 12, 'd': 18}"];
+bb0[shape=record, label="<b>BB0|{-1: const # (100) |-2: const # (0) |-3: const # (1) }|{{}}|{}}"];
+bb1[shape=record, label="<b>BB1|{1: read  |2: read  |3: read  }|{{'a': 1, 'b': 2, 'c': 3, 'd': 2}}|{}}"];
+bb2[shape=record, label="<b>BB2|{10: phi (9) (2)|16: phi (15) (3)|19: phi (18) (1)|22: phi (21) (2)|4: cmp (19) (-1)|5: bge (4) (24)}|{{'a': 19, 'b': 10, 'c': 16, 'd': 22}}|{'a': [4]}}"];
+bb3[shape=record, label="<b>BB3|{6: cmp (22) (-2)|7: bge (6) (9)}|{{'a': 1, 'b': 2, 'c': 3, 'd': 2}}|{'d': [6]}}"];
+bb4[shape=record, label="<b>BB4|{8: add (10) (-3)|11: cmp (16) (-2)|12: bge (11) (14)}|{{'a': 1, 'b': 8, 'c': 3, 'd': 2}}|{'b': [8], 'c': [11]}}"];
+bb5[shape=record, label="<b>BB5|{13: add (16) (-3)}|{{'a': 1, 'b': 8, 'c': 13, 'd': 2}}|{'c': [13]}}"];
+bb6[shape=record, label="<b>BB6|{}|{{'a': 1, 'b': 8, 'c': 3, 'd': 2}}|{}}"];
+bb7[shape=record, label="<b>BB7|{14: phi (13) (3)|17: add (19) (-3)|20: add (8) (-3)}|{{'a': 17, 'b': 8, 'c': 14, 'd': 20}}|{'a': [17], 'b': [20]}}"];
+bb8[shape=record, label="<b>BB8|{}|{{'a': 1, 'b': 2, 'c': 3, 'd': 2}}|{}}"];
+bb9[shape=record, label="<b>BB9|{9: phi (8) (2)|15: phi (14) (3)|18: phi (17) (1)|21: phi (20) (2)|23: bra (10) }|{{'a': 18, 'b': 9, 'c': 15, 'd': 21}}|{}}"];
+bb10[shape=record, label="<b>BB10|{24: write  |25: write  |26: write  }|{{'a': 19, 'b': 10, 'c': 16, 'd': 22}}|{}}"];
 bb0:s->bb1:n[label="fall-through"];
 bb1:s->bb2:n[label="fall-through"];
-bb1:s->bb6:n[label="branch"];
 bb2:s->bb3:n[label="fall-through"];
-bb2:s->bb4:n[label="branch"];
-bb3:s->bb5:n[label="fall-through"];
-bb4:s->bb5:n[label="branch"];
+bb2:s->bb10:n[label="branch"];
+bb3:s->bb4:n[label="fall-through"];
+bb3:s->bb8:n[label="branch"];
+bb4:s->bb5:n[label="fall-through"];
+bb4:s->bb6:n[label="branch"];
 bb5:s->bb7:n[label="fall-through"];
 bb6:s->bb7:n[label="branch"];
+bb7:s->bb9:n[label="fall-through"];
+bb8:s->bb9:n[label="branch"];
+bb9:s->bb2:n[label="branch"];
 }
