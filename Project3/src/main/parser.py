@@ -3,7 +3,10 @@ from tokenizer import *
 from symbol_table import  symbol_info
 import sys
 from Constant import *
-from code_generator import *
+import code_generator
+
+import copy 
+
 
 _tokenizer = None
 table = None
@@ -59,18 +62,25 @@ def lookup():
     return symbol
 
 def insert_var():
-    symbol = table.insert(last_id(), symbol_info.var_symbol(last_id(), 0))
+    symbol = table.insert(last_id(), symbol_info.var_symbol(last_id()))
+
+    if symbol is not None:
+        my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
+
+def insert_array():
+    symbol = table.insert(last_id(), symbol_info.array_symbol(last_id(), last_val()))
 
     if symbol is not None:
         my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
 
 def insert_func(func_name, param_list, return_type):
-    symbol = table.insert(func_name,symbol_info.func_symbol(func_name, param_list, return_type))
+    sym = symbol_info.func_symbol(func_name, param_list, return_type)
+    ret = table.insert(func_name,sym)
 
-    if symbol is not None:
+    if ret is not None:
         my_SyntaxError(func_name + " " +ALREADY_DEFINE + symbol.line_count)
 
-
+    return sym
 
 
 def print_table():
@@ -92,34 +102,39 @@ def computation():
     table.print()
     match_or_error(LCURL)
     next()
+    code_generator.instantiate_main_CFG()
     stat_sequence()
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
-    cfg.generate_dot()
+    code_generator.cfg.render_dot()
 
 def var_declaration():
     if match(VAR):
-        next()   
+        next()
+        insert = insert_var 
 
 # Else must be an array becuase of the checking in caller function
     else:
+        insert = insert_array
+        # Todo: Implement multi dimentional array
         next()
         match_or_error(LSQR)
         next()
 
         print("Array Size: ", _tokenizer.last_val, "\n")
+        code_constant(last_val())
         next()
         match_or_error(RSQR)
         next()
 
     # Assume that it is a var only
-    insert_var()
+    insert()
     next()
 
     while match(COMMA):
         next()
-        insert_var()
+        insert()
         next()
 
     match_or_error(SEMICOLON)
@@ -140,13 +155,17 @@ def func_declaration():
     func_name = _tokenizer.last_id
     next()
     param_list = formal_param()
-    insert_func(func_name, param_list, return_type)
+    symbol = insert_func(func_name, param_list, return_type)
     match_or_error(SEMICOLON)
     next()
+    code_generator.cfg = code_generator.CFG()
     func_body()
     match_or_error(SEMICOLON)
     next()
     table.exit_scope()
+    symbol.cfg = code_generator.cfg
+    table.insert(symbol.name, symbol)
+
 
 def formal_param():
     match_or_error(LPAREN)
@@ -222,12 +241,16 @@ def assignment():
     # LET token alredy been checked in the previous funciton
     # So, just consume it.
     next()
-    designator()
-    ident = last_id()
+    symbol = designator()
     match_or_error(ASSIGNOP)
     next()
-    res = E()
-    code_assignment(ident, res)
+    res = E() # can be a function call like input from user.
+    
+    if symbol.kind == ARRAY:
+        symbol = code_array_store(symbol, res)
+        table.update(symbol.name, symbol)
+        
+    code_generator.code_assignment(symbol, res)
 
 def func_call():
     args = []
@@ -235,7 +258,7 @@ def func_call():
     next()
     match_or_error(IDENTIFIER)
     func_name = last_id()
-    lookup()
+    symbol = lookup()
     next()
 
     if match(LPAREN):
@@ -248,37 +271,42 @@ def func_call():
         
         match_or_error(RPAREN)
         next()
+    res =  code_generator.code_func_call(func_name, args)
 
-    res =  code_func_call(func_name, args)
+    # code_generator.cfg.tree[code_generator.get_bid()].call_foo = symbol.cfg
+    code_generator.cfg.add_bb()
+    symbol.addr = res
 
-    return res
+    return symbol
 
 
 def if_statement():
-    set_phix(True)
+    code_generator.set_phix(True)
     match_or_error(IF)
     next()
     relation()
-    prev_bb = get_bid()
-    create_join_bb(-1, cfg.tree[prev_bb].var_stat)
+    prev_bb = code_generator.get_bid()
+    code_generator.cfg.tree[prev_bb].delete_marked_instruction()
+    code_generator.create_join_bb(IF_JOIN_BB_ID, cfg.tree[prev_bb].var_stat)
     match_or_error(THEN)
-    cfg.add_bb()
+    code_generator.cfg.add_bb()
     jump_ins = get_pc()
     next()
     stat_sequence()
-    left = get_max_bid()
+    left = code_generator.get_max_bid()
     right = 0
-    add_nop()
-    
-    code_else(prev_bb)
+    add_nop(cfg.b_id)
+    code_generator.cfg.tree[get_bid()].delete_marked_instruction()
+    code_generator.code_else(prev_bb)
     if match(ELSE):
-        set_phix(False)
+        code_generator.set_phix(False)
         next()
         # code_else(prev_bb)
         stat_sequence()
-        set_phix(True)
+        code_generator.set_phix(True)
     
-    right = get_max_bid()
+    code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
+    right = code_generator.get_max_bid()
 
     # # No else block. So close the if block
     # else:
@@ -295,16 +323,18 @@ def if_statement():
 def while_statement():
     match_or_error(WHILE)
     next()
-    join_bid = cfg.add_bb()
+    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
+    join_bid = code_generator.cfg.add_bb()
     relation()
-    jump_ins = get_pc()
-    insert_join_bb_while()
+    jump_ins = code_generator.get_pc()
+    code_generator.insert_join_bb_while()
     match_or_error(DO)
-    cfg.add_bb()
-    set_phix(False)
+    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
+    code_generator.cfg.add_bb()
+    code_generator.set_phix(False)
     next()
     stat_sequence()
-    link_up_while(join_bid, jump_ins)
+    code_generator.link_up_while(join_bid, jump_ins)
     match_or_error(OD)
     
     next()
@@ -322,107 +352,100 @@ def relation():
     relOp = cur_token()
     next()
     resR = E()
-    pc = code_relation(resL, resR, relOp)
+    pc = code_generator.code_relation(resL, resR, relOp)
 
     return
     
-
 def designator():
 
     match_or_error(IDENTIFIER)
-    lookup()
-    name = last_id()
+    symbol = lookup()
     next() # [
     while match(LSQR):
-        next() 
-        E()
+        next()
+        res = E()
+
+        # when res.val is known 
+        if res.val:
+            pc = code_constant(res.val)
+        
+        else:
+            pc = res.addr
+
+        symbol.temp = pc
         match_or_error(RSQR)
         next()
 
-    return
+    return copy.deepcopy(symbol)
 
 def E():
-    res = 0
-    resL = 0
-    resR = 0
-
-    resL = T()
-    # assert isinstance(resL)==True, "Should be a symbol"
-    res = resL
+    x = T()
 
     while(True):
         if match(ADDOP):
             next()
-            resR = F()
-            # assert isinstance(resR) == True, "should be a symbol"
-            res = code_f2("add", resL, resR)
+            y = F()
+            x.val = code_generator.compute(ADDOP, x, y)
+            x.addr = code_generator.code_f2("add", x, y)
+            x.name= "computation"
 
         elif match(SUBOP):
             next()
-            resR = F()
-            # assert isinstance(resR) == True, "should be a symbol"
-            res = code_f2("sub", resL, resR)
+            y = F()
+            x.val = code_generator.compute(SUBOP, x, y)
+            x.addr = code_generator.code_f2("sub", x, y)
+            x.name= "computation"
 
         else:
             break
 
-    return res
+    return x
 
 def T():
-    # symbol = symbol_info()
-    res =0
-    resR = 0
-    resL = 0
-    
-    resL = F()
-    # assert isinstance(resL) == True, "Should be a symbol"
-    res = resL
-    
+    x = F()
+
     while(True):
         if match(MULOP):
             next()
-            resR = F()
-            # assert isinstance(resR)==True, "Should be a symbol"
-            res = code_f2("mul", resL, resR)
-
+            y = F()
+            x.val = code_generator.compute(MULOP, x, y)
+            x.addr = code_generator.code_f2("mul", x, y)
+            x.name = "computation"
+            
         elif match(DIVIDEOP):
             next()
-            resR = F()
-            # assert isinstance(resR) == True, "Should be a symbol"
-            res = code_f2("div", resL, resR)
-
+            y = F()
+            x.val = code_generator.compute(DIVIDEOP, x, y)
+            x.addr = code_generator.code_f2("div", x, y)
+            x.name= "computation"
         else:
             break
-    
-    # symbol.val = res
 
-    return res
+    return x
 
 def F():
-    res = 0
-    symbol = symbol_info()
+    symbol = None
 
     if match(LPAREN):
         next()
-        res = E()
+        symbol = E()
         match_or_error(RPAREN)
         next()
 
     elif match(INTEGER):
-       res = code_constant(last_val())
-       next()
+        symbol = symbol_info.const_symbol(val= last_val())
+        symbol.addr = code_generator.code_constant(last_val())
+        next()
     
     elif match(IDENTIFIER):
-        designator()
-        symbol = lookup()
-        res = get_var_pointer(last_id())
-        symbol.val = res
-        res = symbol
-
+        symbol = designator()
+        # avoid duplicate array load
+        if symbol.kind == ARRAY:
+            code_array_load(symbol)
+        else:
+            symbol.addr = code_generator.get_var_pointer(symbol.name)
+            
     elif match(CALL):
-        symbol = lookup()
-        res = func_call()
-        
-    # symbol.val = res
+        symbol = func_call()
 
-    return res
+    return symbol

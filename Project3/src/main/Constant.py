@@ -1,4 +1,5 @@
 DEBUG = True
+CSE = True
 UNDEFINE = "undefine"
 ALREADY_DEFINE = "already defined at line #"
 UNRECOG_SYM = "unrecognize symbol"
@@ -45,8 +46,19 @@ FUNCTION = 36
 MAIN = 37
 CONSTANT = 38
 EXPRESSION = 39
+
+token_name = {
+    ADDOP: "+",
+    SEMICOLON: ";",
+    COMMA : ",",
+    RCURL: "}",
+    LCURL: "{"
+}
 # Code Generator
 # opcode
+BP = "bp"
+INT_SIZE_INS = -1
+IF_JOIN_BB_ID = -1
 opcode = {
     "add": 1,
     "sub": 2, 

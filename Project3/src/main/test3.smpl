@@ -6,13 +6,13 @@ var a, b, c, d, e; {
     let d <- b;
 
     while a < 100 do
+        let a <- a + 1;
         if d < 0 then 
             let b <- b + 1;
             if c < 0 then
                 let c <- c+ 1
             fi;
 
-            let a <- a + 1;
             let d <- b + 1;
         fi;
     od;

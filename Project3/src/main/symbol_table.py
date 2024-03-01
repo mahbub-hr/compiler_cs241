@@ -1,8 +1,12 @@
 import tokenizer
 from tokenizer import * 
+from Constant import *
+
+import copy
 
 class symbol_info:
-    def __init__(self, name=None, kind=None, val=None):
+
+    def __init__(self, name=None, kind=None, val=None, addr= None):
         self.name = name
         self.kind = kind
         self.val = val
@@ -15,6 +19,7 @@ class symbol_info:
     def func_symbol(name, param_list, return_type=True, kind = FUNCTION):
         func = symbol_info()
         func.name = name
+        func.cfg = None
         func.param_list = param_list
         func.kind = kind
         func.line_count = tokenizer.line_count
@@ -22,23 +27,35 @@ class symbol_info:
 
         return func
     
-    def var_symbol(name, val = 0, kind = VAR):
+    def var_symbol(name, val = None, addr = None, kind = VAR):
         var = symbol_info()
         var.name = name
         var.val = val
+        var.addr = addr
         var.kind = kind
         var.line_count = tokenizer.line_count
 
         return var
+    
+    def array_symbol(name, size = 0, kind = ARRAY):
+        var = symbol_info()
+        var.name = name
+        var.size = size
+        var.kind = kind
+        var.idx = {}
+        var.base = f"{name}_base"
+        var.line_count = tokenizer.line_count
 
-    # def const_symbol(name="Constant", val=0, kind = CONSTANT):
-    #     const = symbol_info()
-    #     const.name = name
-    #     const.val = val
-    #     const.kind = kind
-    #     const.line_count = tokenizer.line_count
+        return var
 
-    #     return const
+    def const_symbol(name="Constant", val=0, kind = CONSTANT):
+        const = symbol_info()
+        const.name = name
+        const.val = val
+        const.kind = kind
+        const.line_count = tokenizer.line_count
+
+        return const
 
     def __str__(self):
         return f"<{self.kind}, {self.val}, {self.param_list}, {self.return_type}, {self.line_count}>"
@@ -65,9 +82,9 @@ class scope_table:
 
         return None
 
-    def update(self, identifier, value):
+    def update(self, identifier, symbol):
         if identifier in self.table:
-            self.table[identifier] = value
+            self.table[identifier] = symbol
 
         else:
             error(identifier + " Not Found")
@@ -95,7 +112,6 @@ class symbol_table:
         self.id = 0
         self.current_scope = scope_table(self.id)
         self.table.append(self.current_scope)
-        self.id = self.id + 1
         self.insert_default()
 
     def insert_default(self):
@@ -110,9 +126,9 @@ class symbol_table:
         
 
     def enter_scope(self):
+        self.id = self.id + 1
         self.current_scope = scope_table(self.id)
         self.table.append(self.current_scope)
-        self.id = self.id + 1
         
         return
 
@@ -129,8 +145,16 @@ class symbol_table:
     def insert(self, name, symbol):
         return self.current_scope.insert(name, symbol)
 
+    def update(self, name, symbol):
+        sym = self.lookup(name)
+
+        if sym is not None:
+            self.current_scope.update(name, symbol)
+
+        return sym
+
     def lookup(self, name):
-        id = self.id - 1
+        id = self.id 
 
         while id >= 0:
             symbol = self.table[id].lookup(name)
@@ -142,7 +166,7 @@ class symbol_table:
         return None
 
     def print(self):
-        id = self.id-1
+        id = self.id
 
         while id >= 0:
             print("==> Scope #", id, "\n")

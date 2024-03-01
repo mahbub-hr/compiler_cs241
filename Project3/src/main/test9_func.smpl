@@ -1,0 +1,13 @@
+main
+var x, y;
+void function myInputNum();
+var x;
+{
+    let x<- call InputNum();
+    return x;
+};
+
+{
+    let x <- call myInputNum();
+    call OutputNum(x);
+}
