@@ -46,6 +46,7 @@ FUNCTION = 36
 MAIN = 37
 CONSTANT = 38
 EXPRESSION = 39
+TERM = 40
 
 token_name = {
     ADDOP: "+",
@@ -59,6 +60,14 @@ token_name = {
 BP = "bp"
 INT_SIZE_INS = -1
 IF_JOIN_BB_ID = -1
+CONST_BB_ID = 0
+IF_JOIN_BB = 1000
+WHILE_JOIN_BB = 10001
+IF_BLOCK = 2
+ELSE_BLOCK = 3
+X_OPERAND_BB = 0
+Y_OPERAND_BB = 1
+
 opcode = {
     "add": 1,
     "sub": 2, 

@@ -1,13 +1,19 @@
 main
 var x, y;
-void function myInputNum();
+void function myInputNum(z);
 var x;
 {
     let x<- call InputNum();
     return x;
 };
 
+void function myOutputNum(z);
+var s;
 {
-    let x <- call myInputNum();
-    call OutputNum(x);
+    call OutputNum(z);
+};
+
+{
+    let x <- call myInputNum(2);
+    call myOutputNum(x);
 }

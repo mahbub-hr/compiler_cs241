@@ -4,7 +4,7 @@ from symbol_table import  symbol_info
 import sys
 from Constant import *
 import code_generator
-
+import register_allocator
 import copy 
 
 
@@ -104,10 +104,12 @@ def computation():
     next()
     code_generator.instantiate_main_CFG()
     stat_sequence()
+    code_generator.code_end()
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
-    code_generator.cfg.render_dot()
+    register_allocator.live_variable_analysis(code_generator.cfg_list)
+    code_generator.render_dot()
 
 def var_declaration():
     if match(VAR):
@@ -123,7 +125,7 @@ def var_declaration():
         next()
 
         print("Array Size: ", _tokenizer.last_val, "\n")
-        code_constant(last_val())
+        # code_generator.code_constant(last_val())
         next()
         match_or_error(RSQR)
         next()
@@ -158,12 +160,16 @@ def func_declaration():
     symbol = insert_func(func_name, param_list, return_type)
     match_or_error(SEMICOLON)
     next()
-    code_generator.cfg = code_generator.CFG()
+    code_generator.cfg = code_generator.CFG(code_generator.current_bid)
+    code_generator.cfg.name = func_name
+    code_generator.cfg_list.append(code_generator.cfg)
+    code_generator.code_func_parameter(param_list)
     func_body()
     match_or_error(SEMICOLON)
     next()
     table.exit_scope()
     symbol.cfg = code_generator.cfg
+    code_generator.current_bid = code_generator.cfg.b_id+1
     table.insert(symbol.name, symbol)
 
 
@@ -174,14 +180,14 @@ def formal_param():
     param_list = []
 
     if match(IDENTIFIER):
-        lookup()
+        insert_var()
         param_list.append(_tokenizer.last_id)
         next()
 
         while match(COMMA):
             next()
             match_or_error(IDENTIFIER)
-            lookup()
+            insert_var()
             param_list.append(_tokenizer.last_id)
             next()
     
@@ -247,7 +253,7 @@ def assignment():
     res = E() # can be a function call like input from user.
     
     if symbol.kind == ARRAY:
-        symbol = code_array_store(symbol, res)
+        symbol = code_generator.code_array_store(symbol, res)
         table.update(symbol.name, symbol)
         
     code_generator.code_assignment(symbol, res)
@@ -263,18 +269,33 @@ def func_call():
 
     if match(LPAREN):
         next()
-        args.append(E())
+        arg_symbol = E()
+        if arg_symbol:
+            if arg_symbol.val:
+                args.append(arg_symbol.val) # Todo: use code constant
+            
+            else:
+                args.append(arg_symbol.addr)
 
         while match(COMMA):
             next()
-            args.append(E())
+            if arg_symbol:
+                if symbol.val:
+                    args.append(arg_symbol.val)
+            
+                else:
+                    args.append(arg_symbol.addr)
         
         match_or_error(RPAREN)
         next()
+    
     res =  code_generator.code_func_call(func_name, args)
 
-    # code_generator.cfg.tree[code_generator.get_bid()].call_foo = symbol.cfg
-    code_generator.cfg.add_bb()
+    if func_name not in code_generator.default_foo:
+        code_generator.cfg.tree[code_generator.get_bid()].add_func_call(symbol.cfg)
+        code_generator.cfg.create_bb()
+        code_generator.cfg.tree[code_generator.get_bid()].add_func_return(symbol.cfg)
+        
     symbol.addr = res
 
     return symbol
@@ -287,21 +308,21 @@ def if_statement():
     relation()
     prev_bb = code_generator.get_bid()
     code_generator.cfg.tree[prev_bb].delete_marked_instruction()
-    code_generator.create_join_bb(IF_JOIN_BB_ID, cfg.tree[prev_bb].var_stat)
+    code_generator.create_join_bb(IF_JOIN_BB_ID, code_generator.cfg.tree[prev_bb].var_stat)
     match_or_error(THEN)
+    code_generator.cfg.tree[code_generator.get_bid()].kind = X_OPERAND_BB
     code_generator.cfg.add_bb()
-    jump_ins = get_pc()
+    jump_ins = code_generator.get_pc()
     next()
     stat_sequence()
     left = code_generator.get_max_bid()
     right = 0
-    add_nop(cfg.b_id)
-    code_generator.cfg.tree[get_bid()].delete_marked_instruction()
+    code_generator.add_nop(code_generator.cfg.b_id)
+    code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
     code_generator.code_else(prev_bb)
     if match(ELSE):
-        code_generator.set_phix(False)
         next()
-        # code_else(prev_bb)
+        code_generator.set_phix(False)
         stat_sequence()
         code_generator.set_phix(True)
     
@@ -315,9 +336,9 @@ def if_statement():
     #     cfg.tree[cfg.b_id -2].add_children(cfg.b_id)
     #     cfg.tree[cfg.b_id-2].e_label[cfg.b_id] = "branch"
     #     update_jump(jump_ins)
-    add_join_bb(left, right, jump_ins)
+    code_generator.add_join_bb(left, right, jump_ins)
     match_or_error(FI)
-    pop_phi()
+    code_generator.pop_phi()
     next()
 
 def while_statement():
@@ -325,11 +346,12 @@ def while_statement():
     next()
     code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     join_bid = code_generator.cfg.add_bb()
+    # code_generator.cfg.tree[code_generator.get_bid()].kind = WHILE_JOIN_BB
     relation()
     jump_ins = code_generator.get_pc()
     code_generator.insert_join_bb_while()
     match_or_error(DO)
-    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
+    # code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     code_generator.cfg.add_bb()
     code_generator.set_phix(False)
     next()
@@ -342,7 +364,9 @@ def while_statement():
 def return_statement():
     match_or_error(RETURN)
     next()
-    E()
+    symbol = E()
+    code_generator.code_return()
+    return
 
 def relation():
     resL = 0
@@ -367,7 +391,7 @@ def designator():
 
         # when res.val is known 
         if res.val:
-            pc = code_constant(res.val)
+            pc = code_generator.code_constant(res.val)
         
         else:
             pc = res.addr
@@ -387,14 +411,16 @@ def E():
             y = F()
             x.val = code_generator.compute(ADDOP, x, y)
             x.addr = code_generator.code_f2("add", x, y)
-            x.name= "computation"
+            x.name= "expression"
+            x.kind = EXPRESSION
 
         elif match(SUBOP):
             next()
             y = F()
             x.val = code_generator.compute(SUBOP, x, y)
             x.addr = code_generator.code_f2("sub", x, y)
-            x.name= "computation"
+            x.name= "expression"
+            x.kind = EXPRESSION
 
         else:
             break
@@ -410,14 +436,17 @@ def T():
             y = F()
             x.val = code_generator.compute(MULOP, x, y)
             x.addr = code_generator.code_f2("mul", x, y)
-            x.name = "computation"
+            x.name = "term"
+            x.kind = TERM
             
         elif match(DIVIDEOP):
             next()
             y = F()
             x.val = code_generator.compute(DIVIDEOP, x, y)
             x.addr = code_generator.code_f2("div", x, y)
-            x.name= "computation"
+            x.name= "term"
+            x.kind = TERM
+
         else:
             break
 
@@ -441,7 +470,7 @@ def F():
         symbol = designator()
         # avoid duplicate array load
         if symbol.kind == ARRAY:
-            code_array_load(symbol)
+            code_generator.code_array_load(symbol)
         else:
             symbol.addr = code_generator.get_var_pointer(symbol.name)
             

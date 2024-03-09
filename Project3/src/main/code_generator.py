@@ -51,23 +51,40 @@ def dict_str(d, indent):
         else:
             result += str(value) + "\n"
     return result
+
+def set_str(s):
+    return ", ".join(str(e) for e in s)
         
 class BB:
     def __init__(self, id):
         self.call_foo = None
+        self.type = None
+        self.phi_direction = None
         self.table = []
         self.phi_idx = -1
         self.var_usage = {}     
         self.var_stat = {}
+        self.live_var_set = {}
+        # {var: ins_id}
         self.phi = {}
         self.id = id
         self.next = []
         self.prev = []
+        #function call & return
+        self.func_call=[]
+        self.func_return= []
+
         self.e_label = {}
         self.dom_block = []
         self.dom_instruction = {} # dominating factor
         '''{dom_ins: [simillar dominated instructions], ..}'''
         self.marked_for_deleted= {} 
+
+    def is_empty(self):
+        if self.table:
+            return False
+        
+        return True
 
     def add_dom_instruction(self, opcode, ins_id):
         opcode_to_excl = ['read', 'phi', 'bra']
@@ -177,6 +194,52 @@ class BB:
             return var
 
         return None
+    def get_parent(self):
+        return self.prev
+
+    # def get_parent_with_larger_bid(self):
+    #     return self.prev[:-1]
+
+    # def get_parent_with_smaller_bid(self):
+    #     return self.prev[0]
+
+    def add_live_var_set(self, prev_live_var_set):
+        self.live_var_set[self.table[-1]]  = set(prev_live_var_set)
+        return
+    
+    def get_phi_x_operand_set(self):
+        x_operand_set = set()
+        for i in self.phi.values():
+            x_operand_set.add(ins_array[i].x)
+        
+        return x_operand_set
+
+    def get_phi_y_operand_set(self):
+        y_operand_set = set()
+        for i in self.phi.values():
+            y_operand_set.add(ins_array[i].x)
+        
+        return y_operand_set
+            
+    def live_variable_analysis(self):
+        s = self.live_var_set[self.table[-1]] # Todo: live from next bb
+        
+        for i in reversed(self.table):
+            if i in self.phi.values():
+                break
+
+            if ins_array[i].x is not None and ins_array[i].x>0:# >0 means not a constant
+                s.add(ins_array[i].x)
+
+            if ins_array[i].y is not None and ins_array[i].y>0:
+                s.add(ins_array[i].y)
+            
+            s.discard(i)
+
+            self.live_var_set[i] = set(s)
+            
+        return s
+
 
     def add_nop(self, ins_id):
         self.append(ins_id)
@@ -199,38 +262,46 @@ class BB:
         except:
             pass
                 
+    def add_func_call(self, cfg):
+        self.call_foo = cfg
+        self.func_call.append(cfg.init_bid) # Todo: store func call in a seperate list?
 
-    def dot_node(self, offset_id=0):
+    def add_func_return(self, cfg):
+        self.func_return.append(cfg.b_id)
+
+    def dot_node(self):
         ins_str = ""
+        live_var = ""
 
         for i in self.table:
             ins_str = ins_str + str(ins_array[i]) + "|"
+            live_var = live_var + (set_str(self.live_var_set[i]) if i in self.live_var_set else "") + "|"
         
-        ins_str = "{" + ins_str[:len(ins_str)-1] + "}"
+        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+"}"
         var_stat_str = dict_str(self.var_stat, 2) 
         var_usage_str = dict_str(self.var_usage, 2)
 
         state = "{"+ var_stat_str + '}' +'|{'+  var_usage_str + "}"
-        cur_node_str = f"bb{self.id+offset_id}[shape=record, label=\"<b>BB{self.id+offset_id}|{ins_str}|{state}\"];"
+        cur_node_str = f"bb{self.id}[shape=record, label=\"<b>BB{self.id}|{ins_str}|{state}\"];"
         
-        if self.call_foo:
-            node, edge = self.call_foo.generate_dot(self.id+1)
-            cur_node_str= cur_node_str+node
 
         return cur_node_str
         
-    def dot_edge(self, offset_id=0):
+    def dot_edge(self):
         str_ = ""
         foo_node=""
         foo_edge = ""
-
-        if self.call_foo:
-            foo_node, foo_edge = self.call_foo.generate_dot(self.id+1)
-            
+   
         for i in self.next:
-           str_ = str_ + f'bb{self.id+offset_id}:s->bb{i+offset_id}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
+           str_ = str_ + f'bb{self.id}:s->bb{i}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
 
-        return str_+foo_edge
+        for i in self.func_call:
+            str_ = str_ + f'bb{self.id}->bb{i}[label="function-call"];\n'
+
+        for i in self.func_return:
+            str_ = str_ + f'bb{i}->bb{self.id}[label= "function-return"];\n'
+
+        return str_
 
     def print(self):
         print("=======> BB #", self.id, "\n")
@@ -248,9 +319,10 @@ class BB:
         print("\n")
 
 class CFG:
-    def __init__(self):
+    def __init__(self, init_bid):
         self.tree = {}
-        self.b_id = 0
+        self.b_id = init_bid
+        self.init_bid = init_bid
         self.phi = {}
         self.default()
 
@@ -277,6 +349,10 @@ class CFG:
     '''
     def add_bb(self):
         parent = self.b_id
+        # No Need to create a new block
+        if parent>CONST_BB_ID and self.tree[parent].is_empty():
+            return parent
+
         self.b_id = self.b_id + 1
         bb = BB(self.b_id)
         self.tree[self.b_id] = bb
@@ -328,14 +404,14 @@ class CFG:
     
     def find_dom_instruction(self, instruction):
         bid = self.b_id
-        while bid !=0 and not None:
-            bb = cfg.tree[bid]
+        while bid is not None and bid > self.init_bid:
+            bb = self.tree[bid]
             ins_id = bb.find_dom_instruction(instruction)
             if ins_id:
                 return ins_id
             
             # search in the next dominator
-            bid = bb.dom_block[0]
+            bid = bb.dom_block[0] if bb.dom_block else None # 0--> first dominator
 
         # finished searching up to top-most dominator
         return None
@@ -347,7 +423,7 @@ class CFG:
 
         if dom_ins_id:
             marked_for_deleted =  self.tree[self.b_id].marked_for_deleted
-            if marked_for_deleted:
+            if dom_ins_id in marked_for_deleted:
                 marked_for_deleted[dom_ins_id].append(ins_id)
             
             else: 
@@ -365,7 +441,7 @@ class CFG:
         self.tree[b_id].append(ins_id)
 
     def add_const_instruction(self, ins_id):
-        return self.tree[0].append_const(ins_id)
+        return self.tree[self.init_bid].append_const(ins_id)
 
    #  can make it efficient: start bid and end bid
     def update_xold(self, var, join_bid, xold, xnew):
@@ -379,44 +455,71 @@ class CFG:
                 visited[id] = True
                 self.tree[id].update_xold(var, xold, xnew)
 
+# Todo
     def remove_last_empty_bb(self):
-        if not self.tree[self.b_id].table:
-            self.remove__bb()
+        bb =  self.tree[self.b_id]
 
-    def generate_dot(self, offset_id=0):
-        id = 0
+        # if not bb.table:
+        #     for i in bb.prev:
+        #         if i in self.tree:
+        #             self.tree[i].next.remove(bb.id)
+        #         # function call. another cfg
+        #         else:
+        #             bb.call_foo.tree[bb.call_foo.b_id].next.remove(bb.id)
+            
+        #     self.b_id= self.b_id-1
+
+    def generate_dot(self):
+        id = self.init_bid
         node = ""
         edge = ""
         
+        self.rendered = True
+
         while id <= self.b_id:
             bb =  self.tree[id]
-            node = node + bb.dot_node(offset_id) + "\n"
-            edge = edge + bb.dot_edge(offset_id)
-
-            if bb.call_foo:
-                offset_id = bb.call_foo.b_id+1
-
+            node = node + "\t\t"+bb.dot_node() + "\n"
+            edge = edge + "\t\t"+bb.dot_edge()
             id =id + 1
 
+        edge = "\nsubgraph cluster_"+self.name+"{\n\tlabel="+self.name+"\n\t"+edge+"\n}" 
         return node, edge
 
-    def render_dot(self):
-        self.remove_last_empty_bb()
-        node, edge = self.generate_dot()
+    
+    def live_variable_analysis(self):
+        visited = {} # -1 for skipping the const block
+        bid_list = []
+        visited[self.b_id] = True
+        self.tree[self.b_id].add_live_var_set(set()) # this is last statement, no live var
+        prev_live_set = self.tree[self.b_id].live_variable_analysis()
+        phi_x_operand_set= self.tree[self.b_id].get_phi_x_operand_set()
+        phi_y_operand_set = self.tree[self.b_id].get_phi_y_operand_set()
+        bid_list.extend(self.tree[self.b_id].get_parent())
+        id = bid_list.pop()
 
-        node = "digraph G{\n" + node+ edge + "}"
+        while id > self.init_bid:
+            self.tree[id].add_live_var_set(prev_live_set)
+            prev_live_set = self.tree[id].live_variable_analysis()
+            phi_x_operand_set = self.tree[self.b_id].get_phi_x_operand_set()
+            phi_y_operand_set = self.tree[self.b_id].get_phi_y_operand_set()
 
-        print(node)
-        with open("graph.dot", "w") as f:
-            f.write(node)
+            if id not in visited:
+                visited[id] = True
+                bid_list.extend(self.tree[id].get_parent())
+            
+            if bid_list:
+                # parent= id
+                id = bid_list.pop()
+                if self.tree[id].phi_direction == X_OPERAND_BB:
+                    prev_live_set.union(phi_x_operand_set)
+                
+                elif self.tree[id].phi_direction == Y_OPERAND_BB:
+                   prev_live_set.union(phi_y_operand_set)
 
-    def print(self):
-        id = 0
+            else:
+                break
 
-        while id <= self.b_id:
-            self.tree[id].print()
-            id = id+1
-            print("\n")
+    
 
 relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
 default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
@@ -435,13 +538,31 @@ neg_pc = -1
 phi= {}
 phi_x = True
 phi_i=-1
+current_bid = 0
+cfg_list=[]
 ins_array[neg_pc] = instruction(neg_pc, "const", 4, None)
 
 def instantiate_main_CFG():
     global cfg
-    cfg = CFG()
+    cfg = CFG(current_bid)
+    cfg.name = "main"
+    cfg_list.append(cfg)
     cfg.add_const_instruction(neg_pc)
     return cfg
+
+def render_dot():
+    node = ""
+    edge = ""
+
+    for cfg in cfg_list:
+        n, e = cfg.generate_dot()
+        node = node + "\t"+n
+        edge = edge + "\t"+e
+
+    graph = "digraph G{\n" + node+ edge + "\n}"
+
+    with open("graph.dot", "w") as f:
+        f.write(graph)
 
 def get_pc():
     return pc
@@ -467,6 +588,7 @@ def create_join_bb(bid, var_stat):
     join_bb.var_stat = dict(var_stat)# VAR STATE?
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
+    # join_bb.id = IF_JOIN_BB
 
 # remove phi instruction for which operands are equal, x==y
 # Todo: remove other outer block phi that depend's on this phi.
@@ -485,7 +607,6 @@ def remove_phi_x_eq_y(join_bb):
             inst_table.remove(ins_id)
             del phi[var]
         
-
 # work with if statement
 '''
     1. Remove phi with x == y
@@ -493,6 +614,8 @@ def remove_phi_x_eq_y(join_bb):
     3. 
 '''
 def add_join_bb(left, right, jump_ins):
+    cfg.tree[left].phi_direction = X_OPERAND_BB
+    cfg.tree[righ].phi_direction= Y_OPERAND_BB 
     join_bb = top_phi()
     remove_phi_x_eq_y(join_bb)
     join_bb.id = max(left, right) + 1
@@ -527,12 +650,21 @@ def insert_join_bb_while():
     phi[phi_i] = join_bb
 
 def link_up_while(join_bid, jump_ins):
+    # No need to add a branch to an empty block
+    # if cfg.tree[cfg.b_id].is_empty():
+    #     ins_array
+
+    # else:
+
+    # Todo:can be done easily just by checking brnach type
+    cfg.tree[join_bid-1].phi_direction = X_OPERAND_BB
+    cfg.tree[get_bid()].phi_direction = Y_OPERAND_BB
     inc_pc()
     ins_array[pc] = instruction(pc, "bra", cfg.tree[join_bid].table[0], None)
-    cfg.add_instruction(pc)
+    cfg.add_inst_without_cse(pc)
     cfg.add_bb_man(join_bid, get_bid(), "branch")
     ins_array[jump_ins].update_y(pc+1)
-    cfg.tree[get_bid()].delete_marked_instruction()
+    cfg.tree[cfg.b_id].delete_marked_instruction()
     bb = cfg.create_bb()
     bb.var_stat = dict(cfg.tree[join_bid].var_stat)
     cfg.add_bb_man(bb.id, join_bid, "branch")
@@ -617,6 +749,7 @@ def code_assignment(lsymbol, rsymbol):
 
     if lsymbol.kind == ARRAY:
         cfg.update_array(identifier, lsymbol.temp, ins_id)
+        xold = lsymbol.idx[lsymbol.temp]
 
     else:
         lsymbol.addr = ins_id
@@ -660,21 +793,55 @@ def code_constant(val):
 
     return cfg.add_const_instruction(neg_pc)
 
-def code_func_call(name, args_list):
-    inc_pc()
+def code_func_call(name, arg_list):
+    # Todo: parameter and argument length checking.
     if name in default_foo:
         name = default_foo[name]
+        inc_pc()
+        addr = None
+        if name == "write":
+            addr = arg_list[0]
+        
+        ins_array[pc] = instruction(pc, name, addr, None)
+        cfg.add_inst_without_cse(pc)
 
-    inst = instruction(pc, name, None, None, FUNCTION)
-    ins_array[pc] = inst
-    cfg.add_instruction(pc)
+    else:
+        code_func_argument(arg_list)
+        inc_pc()
+        inst = instruction(pc, "jsr", name, None, FUNCTION)
+        ins_array[pc] = inst
+        cfg.add_inst_without_cse(pc)
 
     return pc
 
+def code_func_parameter(param_list):
+    for param in param_list:
+        inc_pc()
+        ins_array[pc] = instruction(pc, "par", param, None)
+        cfg.add_inst_without_cse(pc)
+        return
+
+def code_func_argument(args_list):
+    for arg in args_list:
+        inc_pc()
+        ins_array[pc] = instruction(pc, "arg", arg, None)
+        cfg.add_inst_without_cse(pc)
+        return 
+        
 def code_f2(opcode, x, y):
     inc_pc()
-    addr1 = x.idx[x.temp] if x.kind == ARRAY else x.addr
-    addr2 = y.idx[y.temp] if y.kind == ARRAY else y.addr
+    if x.kind == ARRAY:
+        addr1 = code_array_load(x)
+    
+    else:
+        addr1 = x.addr
+
+    if y.kind == ARRAY:
+        addr2 = code_array_load(y)
+    
+    else:
+        addr2 = y.addr
+
     ins_array[pc] = instruction(pc, opcode, addr1, addr2)
     ins_id = cfg.add_instruction(pc)
 
@@ -702,7 +869,7 @@ def code_relation(resL, resR, relOp):
     inc_pc()
     ins = instruction(pc, relOp_fall[relOp], pc-1, "follow")
     ins_array[pc] = ins
-    cfg.add_instruction(pc)   
+    cfg.add_inst_without_cse(pc)   
     return pc
 
 def code_array_offset(avar):
@@ -718,7 +885,18 @@ def code_array_offset(avar):
 
     return pc
 
+def code_kill(avar):
+    if phi:
+        join_bb = top_phi()
+        inc_pc()
+        ins_array[pc] = instruction(pc, "kill", avar.name, None)
+        join_bb.append(pc)
+
+        avar.idx = {}
+        return
+
 def code_array_store(avar, res):
+    code_kill(avar)
     addr = code_array_offset(avar)
     inc_pc()
     addr2 = 0
@@ -736,7 +914,7 @@ def code_array_store(avar, res):
 
 def code_array_load(avar):
     # avoid duplicate load
-    if avar.idx[avar.temp]:
+    if avar.temp in avar.idx:
         return avar.idx[avar.temp]
         
     addr = code_array_offset(avar)
@@ -746,7 +924,12 @@ def code_array_load(avar):
 
     return pc
 
-def print_cfg():
-    print(f"\n        *** CFG ***         \n")
-    if DEBUG:
-        cfg.print()
+def code_return():
+    inc_pc()
+    ins_array[pc] = instruction(pc, "ret", None, None)
+    cfg.add_inst_without_cse(pc)
+
+def code_end():
+    inc_pc()
+    ins_array[pc] = instruction(pc, "end", None, None)
+    cfg.add_inst_without_cse(pc)

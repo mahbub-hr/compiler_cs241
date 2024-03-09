@@ -20,3 +20,8 @@ class register_allocator:
     def deallocate_reg(self, reg_no):
         self.reg_array[reg_no] = 0
         return
+        
+
+def live_variable_analysis(cfg_list):
+    for cfg in cfg_list:
+        cfg.live_variable_analysis()

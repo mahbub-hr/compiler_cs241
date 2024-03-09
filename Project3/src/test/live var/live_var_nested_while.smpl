@@ -1,0 +1,14 @@
+main
+var x, y;
+{
+    let x <- call InputNum();
+    let y <- x;
+
+    while x < 0 do 
+
+        while x < 0 do
+            let y <- y +1;
+            let x <- x +1;
+        od;
+    od;
+}
