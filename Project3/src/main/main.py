@@ -4,22 +4,28 @@ import parser
 import tokenizer
 from symbol_table import symbol_table
 
-def read():
-    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+def get_file_name_without_extension():
+    return "live_var_nested_while"
 
-    with open(os.path.join(__location__, '../test/live var/live_var_nested_while.smpl'), 'r') as f:
+def get_test_folder_path():
+    current_file_path = os.path.realpath(__file__)
+    current_directory = os.path.dirname(current_file_path)
+    test_dir = os.path.dirname(current_directory)
+    test_dir = os.path.join(test_dir, os.path.join("test", "live var"))
+    return test_dir
+
+def read():
+    with open(os.path.join(get_test_folder_path(),get_file_name_without_extension())+".smpl", 'r') as f:
         return f.read()
 
-def main(): 
-    sentence = read()#"main \n var var1, var2;\n  var var3, var4;   \n function ident(var1, var2);"
-    #sentence = input("Enter your expression: ")
+def main():
+    sentence = read()
     _tokenizer = tokenizer.Tokenizer(sentence)
     table = symbol_table()
-
     parser.init(_tokenizer, table)
     print("Successfully Compiled\n")
     
-    pass
+    return 
 
 if __name__ == "__main__":
     main()

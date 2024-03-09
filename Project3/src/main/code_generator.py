@@ -204,7 +204,12 @@ class BB:
     #     return self.prev[0]
 
     def add_live_var_set(self, prev_live_var_set):
-        self.live_var_set[self.table[-1]]  = set(prev_live_var_set)
+        if self.table[-1] in self.live_var_set:
+            self.live_var_set[self.table[-1]] = self.live_var_set[self.table[-1]].union(prev_live_var_set)
+
+        else:
+            self.live_var_set[self.table[-1]] = set(prev_live_var_set)
+
         return
     
     def get_phi_x_operand_set(self):
@@ -217,7 +222,7 @@ class BB:
     def get_phi_y_operand_set(self):
         y_operand_set = set()
         for i in self.phi.values():
-            y_operand_set.add(ins_array[i].x)
+            y_operand_set.add(ins_array[i].y)
         
         return y_operand_set
             
@@ -226,7 +231,8 @@ class BB:
         
         for i in reversed(self.table):
             if i in self.phi.values():
-                break
+                s.discard(i)
+                continue
 
             if ins_array[i].x is not None and ins_array[i].x>0:# >0 means not a constant
                 s.add(ins_array[i].x)
@@ -500,21 +506,21 @@ class CFG:
         while id > self.init_bid:
             self.tree[id].add_live_var_set(prev_live_set)
             prev_live_set = self.tree[id].live_variable_analysis()
-            phi_x_operand_set = self.tree[self.b_id].get_phi_x_operand_set()
-            phi_y_operand_set = self.tree[self.b_id].get_phi_y_operand_set()
 
             if id not in visited:
                 visited[id] = True
                 bid_list.extend(self.tree[id].get_parent())
             
             if bid_list:
-                # parent= id
+                parent= id
                 id = bid_list.pop()
                 if self.tree[id].phi_direction == X_OPERAND_BB:
-                    prev_live_set.union(phi_x_operand_set)
+                    phi_x_operand_set = self.tree[parent].get_phi_x_operand_set()
+                    prev_live_set = prev_live_set.union(phi_x_operand_set)
                 
                 elif self.tree[id].phi_direction == Y_OPERAND_BB:
-                   prev_live_set.union(phi_y_operand_set)
+                    phi_y_operand_set = self.tree[parent].get_phi_y_operand_set()
+                    prev_live_set = prev_live_set.union(phi_y_operand_set)
 
             else:
                 break

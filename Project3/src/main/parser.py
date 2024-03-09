@@ -4,7 +4,7 @@ from symbol_table import  symbol_info
 import sys
 from Constant import *
 import code_generator
-import register_allocator
+import reg_allocator
 import copy 
 
 
@@ -108,7 +108,7 @@ def computation():
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
-    register_allocator.live_variable_analysis(code_generator.cfg_list)
+    reg_allocator.live_variable_analysis(code_generator.cfg_list)
     code_generator.render_dot()
 
 def var_declaration():
