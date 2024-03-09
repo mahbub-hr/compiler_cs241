@@ -1,7 +1,8 @@
 class register_allocator:
 
-    def __init__(self):
-        self.reg_array= [0]*30
+    def __init__(self, cfg_list):
+        self.cfg_list = cfg_list
+        self.live_variable_analysis()
 
     '''
         Find and return the register number of 
@@ -21,7 +22,10 @@ class register_allocator:
         self.reg_array[reg_no] = 0
         return
         
+    def live_variable_analysis(self):
+        for cfg in self.cfg_list:
+            cfg.live_variable_analysis()
 
-def live_variable_analysis(cfg_list):
-    for cfg in cfg_list:
-        cfg.live_variable_analysis()
+    def build_interference_graph():
+        for cfg in self.cfg_list:
+            cfg.build_interference_graph()

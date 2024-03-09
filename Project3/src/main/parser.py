@@ -17,6 +17,9 @@ def init(tokenizer, symbol_table):
     _tokenizer = tokenizer
     table = symbol_table
     computation()
+    reg_alloc = reg_allocator.register_allocator(code_generator.cfg_list)
+    code_generator.render_dot()
+
 
 # Todo: show warning for unitialized variable
 
@@ -108,8 +111,7 @@ def computation():
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
-    reg_allocator.live_variable_analysis(code_generator.cfg_list)
-    code_generator.render_dot()
+    
 
 def var_declaration():
     if match(VAR):
