@@ -3,23 +3,23 @@ digraph G{
 		bb1[shape=record, label="<b>BB1|{1: read  }|{13, 14}|{    x: 1
     y: 1
 }|{}"];
-		bb2[shape=record, label="<b>BB2|{8: phi (1) (7)|11: phi (1) (10)|2: cmp (11) (-2)|3: bge (2) (14)}|{||1, 8, 11, 13, 14|1, 2, 8, 13, 14}|{    x: 11
+		bb2[shape=record, label="<b>BB2|{8: phi (1) (7)|11: phi (1) (10)|2: cmp (11) (-2)|3: bge (2) (14)}|{||8, 1, 13, 14|8, 1, 13, 14}|{    x: 11
     y: 8
 }|{    x: [2]
     Constant: [2]
 }"];
-		bb3[shape=record, label="<b>BB3|{7: phi (1) (6)|10: phi (1) (9)|4: cmp (10) (-2)|5: bge (4) (13)}|{||7, 8, 10, 13, 14|4, 7, 8, 10, 13, 14}|{    x: 10
+		bb3[shape=record, label="<b>BB3|{7: phi (1) (6)|10: phi (1) (9)|4: cmp (10) (-2)|5: bge (4) (13)}|{||7, 8, 10, 13, 14|7, 8, 10, 13, 14}|{    x: 10
     y: 7
 }|{    x: [4]
     Constant: [4]
 }"];
-		bb4[shape=record, label="<b>BB4|{6: add (7) (-3)|9: add (10) (-3)|12: bra (7) }|{7, 8, 10, 13, 14|6, 7, 8, 10, 13, 14|6, 7, 8, 9, 13, 14}|{    x: 9
+		bb4[shape=record, label="<b>BB4|{6: add (7) (-3)|9: add (10) (-3)|12: bra (7) }|{7, 8, 10, 13, 14|6, 7, 8, 13, 14|6, 8, 9, 13, 14}|{    x: 9
     y: 6
 }|{    y: [6]
     Constant: [6, 9]
     x: [9]
 }"];
-		bb5[shape=record, label="<b>BB5|{13: bra (8) }|{8, 10, 14, 7}|{    x: 10
+		bb5[shape=record, label="<b>BB5|{13: bra (8) }|{10, 14, 7}|{    x: 10
     y: 7
 }|{}"];
 		bb6[shape=record, label="<b>BB6|{14: end  }|{}|{    x: 11

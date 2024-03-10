@@ -227,24 +227,25 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self):
-        s = self.live_var_set[self.table[-1]] # Todo: live from next bb
+        live_var_set = self.live_var_set[self.table[-1]] 
         
         for i in reversed(self.table):
             if i in self.phi.values():
-                s.discard(i)
+                live_var_set.discard(i)
                 continue
 
+            live_var_set.discard(i)
+            self.live_var_set[i] = set(live_var_set)
+
             if ins_array[i].x is not None and ins_array[i].x>0:# >0 means not a constant
-                s.add(ins_array[i].x)
+                live_var_set.add(ins_array[i].x)
 
             if ins_array[i].y is not None and ins_array[i].y>0:
-                s.add(ins_array[i].y)
+                live_var_set.add(ins_array[i].y)
             
-            s.discard(i)
-
-            self.live_var_set[i] = set(s)
             
-        return s
+            
+        return live_var_set
 
 
     def add_nop(self, ins_id):

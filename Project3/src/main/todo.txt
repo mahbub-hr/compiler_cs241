@@ -1,2 +1,5 @@
+1. Graph Coloring
 2. Remove block with single branch
 3. Remove empty while block
+4. Instruction Scheduling
+5. 
