@@ -6,7 +6,7 @@ import copy
 
 class symbol_info:
 
-    def __init__(self, name=None, kind=None, val=None, addr= None):
+    def __init__(self, name=None, kind=None, val=None, addr= None, var_type=None):
         self.name = name
         self.kind = kind
         self.val = val
@@ -15,6 +15,7 @@ class symbol_info:
         # self.regno = regno
         self.param_list=None
         self.return_type = True
+        self.var_type = var_type
 
     def func_symbol(name, param_list, return_type=True, kind = FUNCTION):
         func = symbol_info()

@@ -17,8 +17,9 @@ def init(tokenizer, symbol_table):
     _tokenizer = tokenizer
     table = symbol_table
     computation()
-    reg_alloc = reg_allocator.register_allocator(code_generator.cfg_list)
     code_generator.render_dot()
+    reg_alloc = reg_allocator.live_variable_analysis(code_generator.cfg_list)
+    code_generator.render_dot("live_var")
 
 
 # Todo: show warning for unitialized variable
@@ -65,16 +66,22 @@ def lookup():
     return symbol
 
 def insert_var():
-    symbol = table.insert(last_id(), symbol_info.var_symbol(last_id()))
+    symbol =  symbol_info.var_symbol(last_id())
+    ret = table.insert(last_id(),symbol)
 
-    if symbol is not None:
+    if ret is not None:
         my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
+    
+    return symbol
 
 def insert_array():
-    symbol = table.insert(last_id(), symbol_info.array_symbol(last_id(), last_val()))
+    symbol =  symbol_info.array_symbol(last_id(), last_val())
+    ret = table.insert(last_id(),symbol)
 
-    if symbol is not None:
+    if ret is not None:
         my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
+    
+    return symbol
 
 def insert_func(func_name, param_list, return_type):
     sym = symbol_info.func_symbol(func_name, param_list, return_type)
@@ -85,6 +92,11 @@ def insert_func(func_name, param_list, return_type):
 
     return sym
 
+def update_symbol(symbol_list):
+    for symbol in symbol_list:
+        table.update(symbol.name, symbol)
+    
+    return
 
 def print_table():
     if DEBUG:
@@ -165,7 +177,8 @@ def func_declaration():
     code_generator.cfg = code_generator.CFG(code_generator.current_bid)
     code_generator.cfg.name = func_name
     code_generator.cfg_list.append(code_generator.cfg)
-    code_generator.code_func_parameter(param_list)
+    param_list = code_generator.code_func_parameter(param_list)
+    update_symbol(param_list)
     func_body()
     match_or_error(SEMICOLON)
     next()
@@ -182,15 +195,15 @@ def formal_param():
     param_list = []
 
     if match(IDENTIFIER):
-        insert_var()
-        param_list.append(_tokenizer.last_id)
+        param = insert_var()
+        param_list.append(param)
         next()
 
         while match(COMMA):
             next()
             match_or_error(IDENTIFIER)
-            insert_var()
-            param_list.append(_tokenizer.last_id)
+            param = insert_var()
+            param_list.append(param)
             next()
     
     match_or_error(RPAREN)
@@ -277,16 +290,20 @@ def func_call():
                 args.append(arg_symbol.val) # Todo: use code constant
             
             else:
-                args.append(arg_symbol.addr)
+                # can be a variable or array
+                addr = code_generator.code_get_var_addr(arg_symbol)
+                args.append(addr)
 
         while match(COMMA):
             next()
+            arg_symbol = E()
             if arg_symbol:
                 if symbol.val:
                     args.append(arg_symbol.val)
             
                 else:
-                    args.append(arg_symbol.addr)
+                    addr = code_generator.code_get_var_addr(arg_symbol)
+                    args.append(addr)
         
         match_or_error(RPAREN)
         next()
@@ -305,25 +322,31 @@ def func_call():
 
 def if_statement():
     code_generator.set_phix(True)
+    prev_bb = code_generator.get_bid()
+    code_generator.create_join_bb(IF_JOIN_BB_ID, code_generator.cfg.tree[prev_bb].var_stat)
+
+    # If header block
     match_or_error(IF)
     next()
     relation()
-    prev_bb = code_generator.get_bid()
+    code_generator.cfg.tree[code_generator.get_bid()].type = IF_HEADER_BLOCK
     code_generator.cfg.tree[prev_bb].delete_marked_instruction()
-    code_generator.create_join_bb(IF_JOIN_BB_ID, code_generator.cfg.tree[prev_bb].var_stat)
+    
+    # Then block
     match_or_error(THEN)
-    code_generator.cfg.tree[code_generator.get_bid()].kind = X_OPERAND_BB
+    next()
     code_generator.cfg.add_bb()
     jump_ins = code_generator.get_pc()
-    next()
     stat_sequence()
     left = code_generator.get_max_bid()
     right = 0
     code_generator.add_nop(code_generator.cfg.b_id)
     code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
-    code_generator.code_else(prev_bb)
+
+    # Else block
     if match(ELSE):
         next()
+        code_generator.code_else(prev_bb)
         code_generator.set_phix(False)
         stat_sequence()
         code_generator.set_phix(True)
@@ -331,37 +354,36 @@ def if_statement():
     code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
     right = code_generator.get_max_bid()
 
-    # # No else block. So close the if block
-    # else:
-    #     cfg.add_bb()
-    #     cfg.tree[cfg.b_id].add_parent(cfg.b_id-2)
-    #     cfg.tree[cfg.b_id -2].add_children(cfg.b_id)
-    #     cfg.tree[cfg.b_id-2].e_label[cfg.b_id] = "branch"
-    #     update_jump(jump_ins)
     code_generator.add_join_bb(left, right, jump_ins)
     match_or_error(FI)
     code_generator.pop_phi()
     next()
 
 def while_statement():
+    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
+    
+    # While JOIN BLOCK
+    join_bid = code_generator.cfg.add_bb()
+
     match_or_error(WHILE)
     next()
-    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
-    join_bid = code_generator.cfg.add_bb()
-    # code_generator.cfg.tree[code_generator.get_bid()].kind = WHILE_JOIN_BB
     relation()
     jump_ins = code_generator.get_pc()
     code_generator.insert_join_bb_while()
-    match_or_error(DO)
-    # code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
+    code_generator.cfg.tree[code_generator.get_bid()].type = WHILE_JOIN_BB
+
+    # Loop Body
+    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     code_generator.cfg.add_bb()
     code_generator.set_phix(False)
+    
+    match_or_error(DO)
     next()
     stat_sequence()
-    code_generator.link_up_while(join_bid, jump_ins)
     match_or_error(OD)
-    
     next()
+
+    code_generator.link_up_while(join_bid, jump_ins)
 
 def return_statement():
     match_or_error(RETURN)
@@ -474,8 +496,14 @@ def F():
         if symbol.kind == ARRAY:
             code_generator.code_array_load(symbol)
         else:
-            symbol.addr = code_generator.get_var_pointer(symbol.name)
-            
+            addr = code_generator.get_var_pointer(symbol.name)
+
+            if addr:
+                symbol.addr = addr
+
+            elif symbol.var_type != VAR_PAR:
+                info("Warning:: variable " + symbol.name +" is not initialized")
+
     elif match(CALL):
         symbol = func_call()
 

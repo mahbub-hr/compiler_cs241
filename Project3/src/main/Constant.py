@@ -6,6 +6,17 @@ UNRECOG_SYM = "unrecognize symbol"
 def UNEXPECTED_TOKEN(expected, unexpected):
     return f"expected {expected} but found {unexpected}"
 
+def debug(msg):
+    if DEBUG:
+        print(msg, "\n")
+
+def info(msg):
+    print(msg, "\n")
+
+# Symbol 
+VAR_PAR = 0
+VAR_REG = 1
+
 # TokenizerPERIOD = -1
 ADDOP = 1
 SUBOP = 2
@@ -59,14 +70,14 @@ token_name = {
 # opcode
 BP = "bp"
 INT_SIZE_INS = -1
-IF_JOIN_BB_ID = -1
+IF_JOIN_BB_ID = -1 # Replace this
 CONST_BB_ID = 0
-IF_JOIN_BB = 1000
-WHILE_JOIN_BB = 10001
-IF_BLOCK = 2
-ELSE_BLOCK = 3
-X_OPERAND_BB = 0
-Y_OPERAND_BB = 1
+IF_JOIN_BLOCK = 1
+WHILE_JOIN_BB = 2
+IF_HEADER_BLOCK = 3
+ELSE_BLOCK = 4
+INSTRUCTION = 7
+PSEUDO_INSTRUCTION= 8
 
 opcode = {
     "add": 1,
@@ -103,8 +114,13 @@ opcode = {
 #       Register Allocator              # 
 #                                       #
 #########################################
-
-
-
+ALLOCATED = True
+NOT_ALLOCATED = False
+VIRTUAL_REG = True
+PHYSICAL_REG = True
+PHY_REG_START = 0
+VIR_REG_END = 100
+NO_PHY_REG_AVAILABLE = -1
+NO_VIR_REG_AVAILABLE = -1
 # Machine Config
 NO_OF_GPR = 5 

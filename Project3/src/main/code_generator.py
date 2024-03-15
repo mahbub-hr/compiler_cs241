@@ -1,10 +1,10 @@
 from Constant import *
 from tokenizer import *
-from symbol_table import *
+import symbol_table
 import json
 
 class instruction:
-    def __init__(self, ins_id, opcode, x, y, type_ = None, bid=-1):
+    def __init__(self, ins_id, opcode, x, y, type_ = INSTRUCTION, bid=-1):
         self.ins_id = ins_id 
         self.opcode = opcode
         self.x = x
@@ -59,12 +59,12 @@ class BB:
     def __init__(self, id):
         self.call_foo = None
         self.type = None
-        self.phi_direction = None
         self.table = []
         self.phi_idx = -1
         self.var_usage = {}     
         self.var_stat = {}
         self.live_var_set = {}
+        self.prev_live_var_set = None
         # {var: ins_id}
         self.phi = {}
         self.id = id
@@ -121,12 +121,13 @@ class BB:
                 if ins_array[ins] == ins_array[i]:
                     self.update_var_with_new_ins(i, ins)
                     self.table.remove(i)
-                    usage = ins_ref_list[i]
-                    for u in usage:
-                        if ins_array[u].x == i:
-                            ins_array[u].update_x(ins)
-                        if ins_array[u].y == i:
-                            ins_array[u].update_y(ins)
+                    if i in ins_ref_list:
+                        usage = ins_ref_list[i]
+                        for u in usage:
+                            if ins_array[u].x == i:
+                                ins_array[u].update_x(ins)
+                            if ins_array[u].y == i:
+                                ins_array[u].update_y(ins)
 
                     
                     
@@ -135,7 +136,7 @@ class BB:
         for var in self.var_stat:
             if prev_id == self.var_stat[var]:
                self.update_var(var, new_id)
-               var_usage = self.var_usage[var]
+            #    var_usage = self.var_usage[var]
 
         return
 
@@ -194,6 +195,7 @@ class BB:
             return var
 
         return None
+
     def get_parent(self):
         return self.prev
 
@@ -204,11 +206,11 @@ class BB:
     #     return self.prev[0]
 
     def add_live_var_set(self, prev_live_var_set):
-        if self.table[-1] in self.live_var_set:
-            self.live_var_set[self.table[-1]] = self.live_var_set[self.table[-1]].union(prev_live_var_set)
+        if self.prev_live_var_set:
+            self.prev_live_var_set = self.prev_live_var_set.union(prev_live_var_set)
 
         else:
-            self.live_var_set[self.table[-1]] = set(prev_live_var_set)
+            self.prev_live_var_set = set(prev_live_var_set)
 
         return
     
@@ -227,24 +229,39 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self):
-        live_var_set = self.live_var_set[self.table[-1]] 
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par"}
+        skip_opcode = {"write", "cmp", "end"}.union(skip_adding_jmp_operand)
+        live_var_set = self.prev_live_var_set
         
         for i in reversed(self.table):
-            if i in self.phi.values():
-                live_var_set.discard(i)
+            live_var_set.discard(i)
+
+            opcode =  ins_array[i].opcode
+
+            if opcode not in skip_opcode:
+                self.live_var_set[i] = set(live_var_set)
+
+            # Pseduo Instr like "par c"
+            if ins_array[i].type == PSEUDO_INSTRUCTION:
+                continue
+            
+            # if ins_array[i].opcode == "phi":
+                
+            # else:
+            # do not add oprands of a jump instruction
+            if opcode in skip_adding_jmp_operand:
                 continue
 
-            live_var_set.discard(i)
-            self.live_var_set[i] = set(live_var_set)
-
-            if ins_array[i].x is not None and ins_array[i].x>0:# >0 means not a constant
+            if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
                 live_var_set.add(ins_array[i].x)
 
             if ins_array[i].y is not None and ins_array[i].y>0:
                 live_var_set.add(ins_array[i].y)
             
-            
-            
+        ''' add live set to it's parent'''
+        for p in self.prev:
+            cfg.tree[p].add_live_var_set(live_var_set)
+
         return live_var_set
 
 
@@ -256,18 +273,19 @@ class BB:
         return
 
     def update_xold(self, var, xold, xnew):
-        try:
-            for i in self.var_usage[var]:
-                ins = ins_array[i]
-                if ins.opcode != "phi":
-                    if ins.x == xold:
-                        ins.x = xnew
 
-                    if ins.y == xold:
-                        ins.y = xnew
+        if var not in self.var_usage:
+            debug(f"{var} not found in var usage, bb:{self.id}")
+            return
 
-        except:
-            pass
+        for i in self.var_usage[var]:
+            if i > 0 and ins_array[i].x == xold:
+                ins_array[i].x = xnew
+            # right opperand
+            if i < 0 and ins_array[-i].y == xold:
+                ins_array[-i].y = xnew
+
+        return
                 
     def add_func_call(self, cfg):
         self.call_foo = cfg
@@ -289,7 +307,7 @@ class BB:
         var_usage_str = dict_str(self.var_usage, 2)
 
         state = "{"+ var_stat_str + '}' +'|{'+  var_usage_str + "}"
-        cur_node_str = f"bb{self.id}[shape=record, label=\"<b>BB{self.id}|{ins_str}|{state}\"];"
+        cur_node_str = f"bb{self.id}[shape=record, weight={self.id}, label=\"<b>BB{self.id}|{ins_str}|{state}\"];"
         
 
         return cur_node_str
@@ -357,7 +375,7 @@ class CFG:
     def add_bb(self):
         parent = self.b_id
         # No Need to create a new block
-        if parent>CONST_BB_ID and self.tree[parent].is_empty():
+        if parent>self.init_bid and self.tree[parent].is_empty():
             return parent
 
         self.b_id = self.b_id + 1
@@ -489,7 +507,7 @@ class CFG:
             edge = edge + "\t\t"+bb.dot_edge()
             id =id + 1
 
-        edge = "\nsubgraph cluster_"+self.name+"{\n\tlabel="+self.name+"\n\t"+edge+"\n}" 
+        edge = "\nsubgraph cluster_"+self.name+"{\nrankdir=LR;\n\tlabel="+self.name+"\n\t"+edge+"\n}" 
         return node, edge
 
     
@@ -499,32 +517,34 @@ class CFG:
         visited[self.b_id] = True
         self.tree[self.b_id].add_live_var_set(set()) # this is last statement, no live var
         prev_live_set = self.tree[self.b_id].live_variable_analysis()
-        phi_x_operand_set= self.tree[self.b_id].get_phi_x_operand_set()
-        phi_y_operand_set = self.tree[self.b_id].get_phi_y_operand_set()
         bid_list.extend(self.tree[self.b_id].get_parent())
-        id = bid_list.pop()
 
-        while id > self.init_bid:
-            self.tree[id].add_live_var_set(prev_live_set)
+        
+
+        while bid_list:
+            id = bid_list.pop()
+
+            # No need to traverse constant block
+            if id  <= self.init_bid:
+                break
+
             prev_live_set = self.tree[id].live_variable_analysis()
 
             if id not in visited:
                 visited[id] = True
-                bid_list.extend(self.tree[id].get_parent())
-            
-            if bid_list:
-                parent= id
-                id = bid_list.pop()
-                if self.tree[id].phi_direction == X_OPERAND_BB:
-                    phi_x_operand_set = self.tree[parent].get_phi_x_operand_set()
-                    prev_live_set = prev_live_set.union(phi_x_operand_set)
-                
-                elif self.tree[id].phi_direction == Y_OPERAND_BB:
-                    phi_y_operand_set = self.tree[parent].get_phi_y_operand_set()
-                    prev_live_set = prev_live_set.union(phi_y_operand_set)
+                parent = self.tree[id].get_parent()
 
-            else:
-                break
+                '''
+                    For a IF header block, there must be two branches.
+                    However, we have visted only one branch. We need to 
+                    visit other branch before we visit it's parent
+                '''
+                if self.tree[id].type == IF_HEADER_BLOCK:
+                    bid_list = parent + bid_list
+                
+                else:
+                    bid_list.extend(parent)
+            
 
     
 
@@ -557,7 +577,8 @@ def instantiate_main_CFG():
     cfg.add_const_instruction(neg_pc)
     return cfg
 
-def render_dot():
+def render_dot(ext=""):
+    import file
     node = ""
     edge = ""
 
@@ -568,7 +589,7 @@ def render_dot():
 
     graph = "digraph G{\n" + node+ edge + "\n}"
 
-    with open("graph.dot", "w") as f:
+    with open(file.get_file_path_without_extension()+f"_cfg_{ext}.dot", "w") as f:
         f.write(graph)
 
 def get_pc():
@@ -583,9 +604,6 @@ def get_max_bid():
 def set_phix(val):
     global phi_x 
     phi_x = val
-
-def update_var_usage(identifier, ins_id):
-    cfg.tree[get_bid()]
 
 # For if statement
 # Todo: copy dom instructions from dominating block
@@ -621,8 +639,6 @@ def remove_phi_x_eq_y(join_bb):
     3. 
 '''
 def add_join_bb(left, right, jump_ins):
-    cfg.tree[left].phi_direction = X_OPERAND_BB
-    cfg.tree[righ].phi_direction= Y_OPERAND_BB 
     join_bb = top_phi()
     remove_phi_x_eq_y(join_bb)
     join_bb.id = max(left, right) + 1
@@ -741,25 +757,27 @@ def compute(opcode, x, y):
         x.val = x.val / y.val
 
     return x.val
+
+def code_get_var_addr(symbol):
+    if symbol.kind == ARRAY:
+        return symbol.idx[symbol.temp]
     
+    return symbol.addr
+
 def code_assignment(lsymbol, rsymbol):
     # is there any case where xold is not in the dictionary
     identifier = lsymbol.name
     ins_id = 0
     xold = cfg.get_var_pointer(identifier)
 
-    if rsymbol.kind == ARRAY:
-        ins_id = rsymbol.idx[rsymbol.temp]
-    
-    else:
-        ins_id = rsymbol.addr
+    ins_id = code_get_var_addr(rsymbol)
 
     if lsymbol.kind == ARRAY:
         cfg.update_array(identifier, lsymbol.temp, ins_id)
         xold = lsymbol.idx[lsymbol.temp]
 
     else:
-        lsymbol.addr = ins_id
+        lsymbol.addr = ins_id # Todo: find out the meaning of this line
         cfg.update_var(identifier, ins_id)
 
     temp =0
@@ -776,9 +794,14 @@ def code_assignment(lsymbol, rsymbol):
             join_bb.append_phi(pc)
             join_bb.update_var(identifier, pc)
 
+            # update operand usage for phi instruction
+            if rsymbol.kind == VAR:
+                join_bb.update_var_usage(rsymbol.name, -temp)
             # update all uses of xold by phi
             if join_bb.id != IF_JOIN_BB_ID:
                 cfg.update_xold(identifier,join_bb.id, xold, pc)
+
+            join_bb.update_var_usage(lsymbol.name, temp)
         
         else:
             temp = join_bb.phi[identifier]
@@ -789,6 +812,8 @@ def code_assignment(lsymbol, rsymbol):
         
         else:
             ins_array[temp].update_y(ins_id)
+
+       
 
         ins_id = pc
 
@@ -824,16 +849,21 @@ def code_func_call(name, arg_list):
 def code_func_parameter(param_list):
     for param in param_list:
         inc_pc()
-        ins_array[pc] = instruction(pc, "par", param, None)
+        ins_array[pc] = instruction(pc, "par", param.name, None, PSEUDO_INSTRUCTION)
         cfg.add_inst_without_cse(pc)
-        return
+        # update symbol table
+        param.addr = pc
+        param.var_type = VAR_PAR
+        
+    return param_list
 
 def code_func_argument(args_list):
     for arg in args_list:
         inc_pc()
         ins_array[pc] = instruction(pc, "arg", arg, None)
         cfg.add_inst_without_cse(pc)
-        return 
+    
+    return 
         
 def code_f2(opcode, x, y):
     inc_pc()
@@ -855,7 +885,7 @@ def code_f2(opcode, x, y):
     # instruction added, no cse. update new var usage
     if ins_id == pc:
         cfg.update_var_usage(x.name, pc)
-        cfg.update_var_usage(y.name, pc)
+        cfg.update_var_usage(y.name, -pc)
 
     return ins_id
 
@@ -868,8 +898,9 @@ def code_else(prev_bb):
 
 def code_relation(resL, resR, relOp):
     inc_pc()
+    # Todo: check whether they are variable or not
     cfg.update_var_usage(resL.name, pc)
-    cfg.update_var_usage(resR.name, pc)
+    cfg.update_var_usage(resR.name, -pc)
 
     ins_array[pc] = instruction(pc, "cmp", resL.addr, resR.addr)
     cfg.add_instruction(pc)

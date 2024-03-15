@@ -1,0 +1,23 @@
+main
+array[10] a,b, g;
+var i, j;
+function sum(c,d);
+var e,f; {
+    let e <- c;
+    let f <- d;
+    return e + f;
+};
+function print(); {
+    call OutputNum(1);
+};
+{
+    let i <- call InputNum();
+    let j <- call InputNum();
+    call print;
+    let i <- call sum(i, j);
+    let a[i] <- call InputNum();
+    call print;
+    let b[j] <- g[i+1] + 2;
+    call OutputNum(b[j]);
+    call print
+}.
