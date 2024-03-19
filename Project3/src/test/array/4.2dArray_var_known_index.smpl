@@ -1,0 +1,7 @@
+main
+array [3][4] a;
+var i, a;
+{
+    let i <- 3;
+    let a[2][i] <- 5;
+}

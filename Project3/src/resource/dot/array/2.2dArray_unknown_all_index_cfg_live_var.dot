@@ -1,0 +1,19 @@
+digraph G{
+			bb0[shape=record, weight=0, label="<b>BB0|{-1: const (4) |-2: const # (1) }|{|}|{}|{}"];
+		bb1[shape=record, weight=1, label="<b>BB1|{1: read  |2: read  |3: mul (1) (4)|4: add (3) (1)|5: mul (4) (-1)|6: addi (bp) (a_base)|7: adda (5) (6)|8: store (7) (2)|9: add (2) (-2)|10: end  }|{4|1, 4|1, 2|2|2||2|2||}|{    i: 1
+    j: 1
+    b: 9
+    a: 
+\{      1: 
+\{        1: 2
+\}\}}|{    a: [9]
+    Constant: [-9]
+}"];
+	
+subgraph cluster_main{
+rankdir=LR;
+	label=main
+			bb0:s->bb1:n[label="fall-through"];
+		
+}
+}

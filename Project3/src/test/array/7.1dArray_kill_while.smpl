@@ -1,0 +1,17 @@
+main
+
+array[10] a;
+var i, j;
+
+{
+    let i <- call InputNum();
+    let j <- call InputNum();
+
+    let a[i] <- call InputNum();
+
+    while i > 0 do 
+        let a[j] <- a[i+1] + 1;
+
+        let i <- i+1;
+    od;
+}

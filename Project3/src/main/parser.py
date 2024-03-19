@@ -18,8 +18,10 @@ def init(tokenizer, symbol_table):
     table = symbol_table
     computation()
     code_generator.render_dot()
-    reg_alloc = reg_allocator.live_variable_analysis(code_generator.cfg_list)
+    reg_allocator.live_variable_analysis(code_generator.cfg_list)
     code_generator.render_dot("live_var")
+    reg_allocator.allocate_register(code_generator.cfg_list)
+    reg_allocator.render_dot(code_generator.cfg_list)
 
 
 # Todo: show warning for unitialized variable
@@ -46,7 +48,7 @@ def match_or_error(token):
         token_array = token
 
     if tokenizer.cur_token not in token_array:
-        my_SyntaxError(UNEXPECTED_TOKEN(token, tokenizer.cur_token))
+        my_SyntaxError(UNEXPECTED_TOKEN(tokenizer.token_mapping[token], tokenizer.token_mapping[tokenizer.cur_token]))
 
 def last_id():
     return _tokenizer.last_id
@@ -74,13 +76,17 @@ def insert_var():
     
     return symbol
 
-def insert_array():
-    symbol =  symbol_info.array_symbol(last_id(), last_val())
+def insert_array(array_size):
+    symbol =  symbol_info.array_symbol(last_id(), array_size)
     ret = table.insert(last_id(),symbol)
 
     if ret is not None:
         my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
     
+    # insert array stride constant
+    for i in range(len(symbol.stride)):
+        symbol.stride[i] = code_generator.code_constant(symbol.stride[i])
+
     return symbol
 
 def insert_func(func_name, param_list, return_type):
@@ -107,6 +113,8 @@ def computation():
     match_or_error(MAIN)
     res = 0
     next() # main
+    code_generator.instantiate_main_CFG()
+    main_cfg = code_generator.cfg
 
     while match(VAR) or match(ARRAY):
         var_declaration()
@@ -117,7 +125,7 @@ def computation():
     table.print()
     match_or_error(LCURL)
     next()
-    code_generator.instantiate_main_CFG()
+    code_generator.cfg = main_cfg
     stat_sequence()
     code_generator.code_end()
     match_or_error(RCURL)
@@ -126,31 +134,47 @@ def computation():
     
 
 def var_declaration():
+    var = True
+    array_size = []
+
     if match(VAR):
+        var = True
         next()
-        insert = insert_var 
 
 # Else must be an array becuase of the checking in caller function
     else:
-        insert = insert_array
-        # Todo: Implement multi dimentional array
+        var = False
         next()
         match_or_error(LSQR)
         next()
-
+        array_size.append(_tokenizer.last_val)
         print("Array Size: ", _tokenizer.last_val, "\n")
-        # code_generator.code_constant(last_val())
         next()
         match_or_error(RSQR)
         next()
 
-    # Assume that it is a var only
-    insert()
+        while match(LSQR):
+            next()
+            array_size.append(_tokenizer.last_val)
+            print("Array Size: ", _tokenizer.last_val, "\n")
+            next()
+            match_or_error(RSQR)
+            next()
+
+    match_or_error(IDENTIFIER)
+    if var:
+        insert_var()
+    else:
+        insert_array(array_size)
     next()
 
     while match(COMMA):
         next()
-        insert()
+        match_or_error(IDENTIFIER)
+        if var:
+            insert_var()
+        else:
+            insert_array(array_size)
         next()
 
     match_or_error(SEMICOLON)
@@ -262,16 +286,12 @@ def assignment():
     # LET token alredy been checked in the previous funciton
     # So, just consume it.
     next()
-    symbol = designator()
+    lsymbol = designator()
     match_or_error(ASSIGNOP)
     next()
-    res = E() # can be a function call like input from user.
-    
-    if symbol.kind == ARRAY:
-        symbol = code_generator.code_array_store(symbol, res)
-        table.update(symbol.name, symbol)
-        
-    code_generator.code_assignment(symbol, res)
+    rsymbol = E() # can be a function call like input from user.
+    code_generator.code_assignment(lsymbol, rsymbol)
+    table.update(lsymbol.name, lsymbol) 
 
 def func_call():
     args = []
@@ -322,15 +342,17 @@ def func_call():
 
 def if_statement():
     code_generator.set_phix(True)
-    prev_bb = code_generator.get_bid()
-    code_generator.create_join_bb(IF_JOIN_BB_ID, code_generator.cfg.tree[prev_bb].var_stat)
+    prev_bid = code_generator.get_bid()
+    prev_bb = code_generator.cfg.tree[prev_bid]
+
+    code_generator.create_join_bb(prev_bb)
 
     # If header block
     match_or_error(IF)
     next()
     relation()
     code_generator.cfg.tree[code_generator.get_bid()].type = IF_HEADER_BLOCK
-    code_generator.cfg.tree[prev_bb].delete_marked_instruction()
+    code_generator.cfg.tree[prev_bid].delete_marked_instruction()
     
     # Then block
     match_or_error(THEN)
@@ -346,7 +368,7 @@ def if_statement():
     # Else block
     if match(ELSE):
         next()
-        code_generator.code_else(prev_bb)
+        code_generator.code_else(prev_bid)
         code_generator.set_phix(False)
         stat_sequence()
         code_generator.set_phix(True)
@@ -409,6 +431,8 @@ def designator():
     match_or_error(IDENTIFIER)
     symbol = lookup()
     next() # [
+
+    symbol.last_index = []
     while match(LSQR):
         next()
         res = E()
@@ -418,9 +442,10 @@ def designator():
             pc = code_generator.code_constant(res.val)
         
         else:
+            # Todo: find value if found in var state
             pc = res.addr
 
-        symbol.temp = pc
+        symbol.last_index.append(pc)
         match_or_error(RSQR)
         next()
 
@@ -433,16 +458,14 @@ def E():
         if match(ADDOP):
             next()
             y = F()
-            x.val = code_generator.compute(ADDOP, x, y)
-            x.addr = code_generator.code_f2("add", x, y)
+            x = code_generator.code_f2("add", x, y)
             x.name= "expression"
             x.kind = EXPRESSION
 
         elif match(SUBOP):
             next()
             y = F()
-            x.val = code_generator.compute(SUBOP, x, y)
-            x.addr = code_generator.code_f2("sub", x, y)
+            x = code_generator.code_f2("sub", x, y)
             x.name= "expression"
             x.kind = EXPRESSION
 
@@ -458,16 +481,14 @@ def T():
         if match(MULOP):
             next()
             y = F()
-            x.val = code_generator.compute(MULOP, x, y)
-            x.addr = code_generator.code_f2("mul", x, y)
+            x = code_generator.code_f2("mul", x, y)
             x.name = "term"
             x.kind = TERM
             
         elif match(DIVIDEOP):
             next()
             y = F()
-            x.val = code_generator.compute(DIVIDEOP, x, y)
-            x.addr = code_generator.code_f2("div", x, y)
+            x = code_generator.code_f2("div", x, y)
             x.name= "term"
             x.kind = TERM
 

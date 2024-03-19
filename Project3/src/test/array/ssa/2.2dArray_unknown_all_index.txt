@@ -1,0 +1,3 @@
+read
+read
+mul (1) ()

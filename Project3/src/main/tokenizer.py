@@ -45,6 +45,49 @@ MAIN = 37
 line_count = 1
 char_at_line = 0
 
+# Create the dictionary using variable names as keys
+token_mapping = {
+    PERIOD: "PERIOD",
+    ADDOP: "+",
+    SUBOP: "-",
+    MULOP: "*",
+    DIVIDEOP: "/",
+    LPAREN: "(",
+    RPAREN: ")",
+    COMPUTATION: "COMPUTATION",
+    IDENTIFIER: "IDENTIFIER",
+    SEMICOLON: ";",
+    VAR: "VAR",
+    ASSIGNOP: "=",
+    INTEGER: "INTEGER",
+    LSQR: "[",
+    RSQR: "]",
+    LCURL: "{",
+    RCURL: "}",
+    COMMA: ",",
+    EQOP: "==",
+    NOTEQOP: "!=",
+    LEQOP: "<=",
+    GEQOP: ">=",
+    LTOP: "<",
+    GTOP: ">",
+    LET: "LET",
+    CALL: "CALL",
+    IF: "IF",
+    THEN: "THEN",
+    ELSE: "ELSE",
+    FI: "FI",
+    WHILE: "WHILE",
+    DO: "DO",
+    OD: "OD",
+    RETURN: "RETURN",
+    ARRAY: "ARRAY",
+    VOID: "VOID",
+    FUNCTION: "FUNCTION",
+    MAIN: "MAIN"
+}
+
+
 class Tokenizer:
     def __init__(self, sentence):
         global cur_token

@@ -2,6 +2,7 @@ from Constant import *
 from tokenizer import *
 import symbol_table
 import json
+import copy
 
 class instruction:
     def __init__(self, ins_id, opcode, x, y, type_ = INSTRUCTION, bid=-1):
@@ -47,9 +48,10 @@ def dict_str(d, indent):
     for key, value in d.items():
         result += "  " * indent + str(key) + ": "
         if isinstance(value, dict):
-            result += "\n" + dict_str(value, indent + 1)
+            result += "\n\\{" + dict_str(value, indent + 1) +"\\}"
         else:
             result += str(value) + "\n"
+
     return result
 
 def set_str(s):
@@ -171,14 +173,13 @@ class BB:
     def get_var_pointer(self, var):
         return self.var_stat.get(var, None)
     
-    def update_var(self, var, ins_id):
-        self.var_stat[var] = ins_id
+    def update_var(self, symbol):
+        var = symbol.name
+        self.var_stat[var] = symbol.addr
 
-    def update_array(self, var, idx, ins_id):
-        if var not in self.var_stat:
-            self.var_stat[var] = {}
-
-        self.var_stat[var][idx] = ins_id
+    def update_array(self, symbol):
+        var = symbol.name
+        self.var_stat[var] = copy.deepcopy(symbol.state)
     
     def update_var_usage(self, var, ins_id):
         if var not in self.var_usage:
@@ -229,7 +230,7 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self):
-        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par"}
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par", "addi"}
         skip_opcode = {"write", "cmp", "end"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
@@ -238,8 +239,10 @@ class BB:
 
             opcode =  ins_array[i].opcode
 
-            if opcode not in skip_opcode:
-                self.live_var_set[i] = set(live_var_set)
+            if opcode in skip_opcode:
+                continue
+            
+            self.live_var_set[i] = set(live_var_set)
 
             # Pseduo Instr like "par c"
             if ins_array[i].type == PSEUDO_INSTRUCTION:
@@ -249,8 +252,8 @@ class BB:
                 
             # else:
             # do not add oprands of a jump instruction
-            if opcode in skip_adding_jmp_operand:
-                continue
+            # if opcode in skip_opcode:
+            #     continue
 
             if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
                 live_var_set.add(ins_array[i].x)
@@ -267,10 +270,6 @@ class BB:
 
     def add_nop(self, ins_id):
         self.append(ins_id)
-
-    def bb_copy(self):
-
-        return
 
     def update_xold(self, var, xold, xnew):
 
@@ -414,12 +413,6 @@ class CFG:
 
     def remove__bb(self):
         self.b_id = self.b_id-1
-
-    def update_var(self, var, ins_id):
-        self.tree[self.b_id].update_var(var, ins_id)
-    
-    def update_array(self, var, idx, ins_id):
-        self.tree[self.b_id].update_array(var, idx, ins_id)
 
     def update_var_usage(self, var, ins_id):
         self.tree[self.b_id].update_var_usage(var, ins_id)
@@ -589,7 +582,7 @@ def render_dot(ext=""):
 
     graph = "digraph G{\n" + node+ edge + "\n}"
 
-    with open(file.get_file_path_without_extension()+f"_cfg_{ext}.dot", "w") as f:
+    with open(file.get_dot_file_path()+f"_cfg_{ext}.dot", "w") as f:
         f.write(graph)
 
 def get_pc():
@@ -607,13 +600,14 @@ def set_phix(val):
 
 # For if statement
 # Todo: copy dom instructions from dominating block
-def create_join_bb(bid, var_stat):
+def create_join_bb(prev_bb):
     global phi_i
-    join_bb = BB(bid) 
-    join_bb.var_stat = dict(var_stat)# VAR STATE?
+    join_bb = BB(IF_JOIN_BB_ID) 
+    join_bb.var_stat = copy.deepcopy(prev_bb.var_stat)
+    join_bb.dom_instruction = copy.deepcopy(prev_bb.dom_instruction)
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
-    # join_bb.id = IF_JOIN_BB
+    join_bb.type = IF_JOIN_BLOCK
 
 # remove phi instruction for which operands are equal, x==y
 # Todo: remove other outer block phi that depend's on this phi.
@@ -737,49 +731,39 @@ def add_nop(b_id):
 
         return pc
 
-def compute(opcode, x, y):
-    if x.val is None:
-        return None
-    
-    if y.val is None:
-        return None
-
-    if opcode == ADDOP:
-        x.val = x.val + y.val
-
-    elif opcode == SUBOP:
-        x.val = x.val - y.val
-
-    elif opcode == MULOP:
-        x.val = x.val * y.val
-
-    elif opcode == DIVIDEOP:
-        x.val = x.val / y.val
-
-    return x.val
-
-def code_get_var_addr(symbol):
+def code_get_var_addr(symbol, load_array=True):
     if symbol.kind == ARRAY:
-        return symbol.idx[symbol.temp]
+        if load_array:
+            return code_array_load(symbol)
+        
+        else:
+            return symbol.get_array_state()
     
     return symbol.addr
 
 def code_assignment(lsymbol, rsymbol):
     # is there any case where xold is not in the dictionary
-    identifier = lsymbol.name
-    ins_id = 0
-    xold = cfg.get_var_pointer(identifier)
+    cur_bb = cfg.tree[cfg.b_id]
+    new_addr = code_get_var_addr(rsymbol)
+    old_addr = code_get_var_addr(lsymbol, False)
 
-    ins_id = code_get_var_addr(rsymbol)
-
+    # Update the current bb's var state
     if lsymbol.kind == ARRAY:
-        cfg.update_array(identifier, lsymbol.temp, ins_id)
-        xold = lsymbol.idx[lsymbol.temp]
+        code_array_store(lsymbol, new_addr)
+        cur_bb.update_array(lsymbol)
+        
+        return lsymbol
 
-    else:
-        lsymbol.addr = ins_id # Todo: find out the meaning of this line
-        cfg.update_var(identifier, ins_id)
+    # Variable. Update phi funciton
+    lsymbol.addr = new_addr
+    cur_bb.update_var(lsymbol)
+    update_phi(lsymbol, rsymbol, old_addr, new_addr)
 
+def update_phi(lsymbol, rsymbol, xold, xnew):
+    if lsymbol.kind != VAR:
+        return
+
+    identifier = lsymbol.name
     temp =0
     i = phi_i
 
@@ -792,13 +776,14 @@ def code_assignment(lsymbol, rsymbol):
             ins_array[pc] = instruction(pc, "phi", xold, xold)
             join_bb.phi[identifier] = pc
             join_bb.append_phi(pc)
-            join_bb.update_var(identifier, pc)
+            lsymbol.addr = pc
+            join_bb.update_var(lsymbol)
 
             # update operand usage for phi instruction
             if rsymbol.kind == VAR:
                 join_bb.update_var_usage(rsymbol.name, -temp)
             # update all uses of xold by phi
-            if join_bb.id != IF_JOIN_BB_ID:
+            if join_bb.type != IF_JOIN_BLOCK:
                 cfg.update_xold(identifier,join_bb.id, xold, pc)
 
             join_bb.update_var_usage(lsymbol.name, temp)
@@ -808,14 +793,14 @@ def code_assignment(lsymbol, rsymbol):
         
         # left operand or right operand
         if phi_x:
-            ins_array[temp].update_x(ins_id)
+            ins_array[temp].update_x(xnew)
         
         else:
-            ins_array[temp].update_y(ins_id)
+            ins_array[temp].update_y(xnew)
 
-       
+    
 
-        ins_id = pc
+        xnew = pc
 
     return
 
@@ -864,20 +849,39 @@ def code_func_argument(args_list):
         cfg.add_inst_without_cse(pc)
     
     return 
-        
-def code_f2(opcode, x, y):
-    inc_pc()
-    if x.kind == ARRAY:
-        addr1 = code_array_load(x)
-    
-    else:
-        addr1 = x.addr
 
-    if y.kind == ARRAY:
-        addr2 = code_array_load(y)
+def compute(opcode, x, y):
+    if x.val is None:
+        return None
     
-    else:
-        addr2 = y.addr
+    if y.val is None:
+        return None
+
+    if opcode == "add":
+        x.val = x.val + y.val
+
+    elif opcode == "sub":
+        x.val = x.val - y.val
+
+    elif opcode == "mul":
+        x.val = x.val * y.val
+
+    elif opcode == "div":
+        x.val = x.val / y.val #Todo: div by zero
+
+    return x.val
+
+def code_f2(opcode, x, y):
+    val = compute(opcode, x, y)
+
+    if val:
+        x.val = val
+        x.addr =  code_constant(val)
+        return x
+
+    inc_pc()
+    addr1 = code_get_var_addr(x)
+    addr2 = code_get_var_addr(y)
 
     ins_array[pc] = instruction(pc, opcode, addr1, addr2)
     ins_id = cfg.add_instruction(pc)
@@ -887,7 +891,9 @@ def code_f2(opcode, x, y):
         cfg.update_var_usage(x.name, pc)
         cfg.update_var_usage(y.name, -pc)
 
-    return ins_id
+    x.addr = ins_id
+
+    return x
 
 def code_else(prev_bb):
     bb = cfg.create_bb()
@@ -911,8 +917,30 @@ def code_relation(resL, resR, relOp):
     return pc
 
 def code_array_offset(avar):
+    dimension_count = len(avar.last_index)
+    dim_stride = []
+
+    # multiply 
+    for i in range(0, dimension_count-1):
+        inc_pc()
+        ins_array[pc] = instruction(pc, "mul", avar.last_index[i], avar.stride[i]) # Todo: insert array stride into constant
+        cfg.add_instruction(pc)
+        dim_stride.append(pc)
+
+    dim_stride.append(avar.last_index[-1])
+
+    # Add all dim_stride
+    #
+    prev = dim_stride[0]
+
+    for i in range(1, dimension_count):
+        inc_pc()
+        ins_array[pc] = instruction(pc, "add", prev, dim_stride[i])
+        cfg.add_instruction(pc)
+        prev = pc
+
     inc_pc()
-    ins_array[pc] = instruction(pc, "mul", avar.temp, INT_SIZE_INS)
+    ins_array[pc] = instruction(pc, "mul", prev, INT_SIZE_INS)
     addr1 = cfg.add_instruction(pc)
     inc_pc()
     ins_array[pc] = instruction(pc, "addi", BP, avar.base)
@@ -927,39 +955,35 @@ def code_kill(avar):
     if phi:
         join_bb = top_phi()
         inc_pc()
-        ins_array[pc] = instruction(pc, "kill", avar.name, None)
+        ins_array[pc] = instruction(pc, "kill", avar.name, None, PSEUDO_INSTRUCTION)
         join_bb.append(pc)
 
         avar.idx = {}
         return
 
-def code_array_store(avar, res):
+def code_array_store(avar, addr):
     code_kill(avar)
-    addr = code_array_offset(avar)
+    addr1 = code_array_offset(avar)
     inc_pc()
-    addr2 = 0
-    if res.kind == ARRAY:
-        addr2 = res.idx[res.temp]
-    
-    else:
-        addr2 = res.addr
-
-    avar.idx[avar.temp] = addr2 # update the array symbol's idx
-    ins_array[pc] = instruction(pc, "store", addr, addr2)
+    avar.update_array_state(addr)# update the array symbol's idx
+    ins_array[pc] = instruction(pc, "store", addr1, addr)
     cfg.add_inst_without_cse(pc)
 
     return avar
 
 def code_array_load(avar):
     # avoid duplicate load
-    if avar.temp in avar.idx:
-        return avar.idx[avar.temp]
+    ret = avar.get_array_state()
+
+    if ret is not None:
+        return ret
         
     addr = code_array_offset(avar)
     inc_pc()
     ins_array[pc] = instruction(pc, "load", addr, None)
-    cfg.add_instruction(pc)
-
+    cfg.add_inst_without_cse(pc)
+    avar.update_array_state(pc)
+    
     return pc
 
 def code_return():

@@ -38,16 +38,56 @@ class symbol_info:
 
         return var
     
-    def array_symbol(name, size = 0, kind = ARRAY):
+    def array_symbol(name, size:list = None, kind = ARRAY):
         var = symbol_info()
         var.name = name
         var.size = size
+        var.stride = symbol_info.compute_array_stride(size)
+        var.last_index=[]
         var.kind = kind
-        var.idx = {}
+        var.state = {}
         var.base = f"{name}_base"
         var.line_count = tokenizer.line_count
 
         return var
+
+    def find_array_state_dic(self):
+        d = self.state
+        for i in self.last_index[:-1]:
+            if i not in d:
+                d[i] = {}
+            
+            d = d[i] 
+
+        return d
+
+    def get_array_state(self):
+        d = self.find_array_state_dic()
+        i =  self.last_index[-1]
+        if i in d:
+            return d[i]
+
+        return None
+
+    def update_array_state(self, addr):
+        # keep the array state for the 1 D array only
+        d = self.find_array_state_dic()   
+        d[self.last_index[-1]] = addr
+
+        return
+
+    
+    def compute_array_stride(size:list):
+        strides = []
+        stride = 1
+        for dimension in reversed(size):
+            strides.append(stride)
+            stride *= dimension
+
+        # Reverse the list of strides to match the original order of dimensions
+        strides = strides[::-1]
+    
+        return strides
 
     def const_symbol(name="Constant", val=0, kind = CONSTANT):
         const = symbol_info()

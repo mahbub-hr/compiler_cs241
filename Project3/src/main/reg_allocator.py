@@ -2,7 +2,10 @@ import Constant
 import file
 import sys
 
+import code_generator
+
 class register_allocator:
+    reg_allocator = None
 
     def __init__(self):
         self.no_gpr = Constant.NO_OF_GPR
@@ -10,6 +13,12 @@ class register_allocator:
         self.vir_reg_start = Constant.NO_OF_GPR
         self.vir_reg_end = Constant.VIR_REG_END
         self.reg_alloacation = {}
+
+    def get_reg_allocator():
+        if register_allocator.reg_allocator is None:
+            register_allocator.reg_allocator = register_allocator()
+        
+        return register_allocator.reg_allocator
 
     def next_phy_reg(self):
         # No more physical reg
@@ -167,13 +176,13 @@ def build_interference_graph(bb, graph):
 
     return
 
-def render_dot(cfg_list):
+def render_dot(cfg_list, ext= "interference"):
     dot_str = ""
 
     for cfg in cfg_list:
         dot_str = dot_str + cfg.interference_graph.dot()
 
-    with open(file.get_file_path_without_extension()+"_inference.dot", "w") as f:
+    with open(file.get_dot_file_path()+f"_{ext}.dot", "w") as f:
         graph_str = "graph G{\n"+ dot_str + "\n}"
         f.write(graph_str)
     
@@ -184,14 +193,36 @@ def live_variable_analysis(cfg_list):
         cfg.live_variable_analysis()
 
     build_interference_graph_cfg_list(cfg_list)
-    allocate_register(cfg_list)
-
 
 def allocate_register(cfg_list):
-    reg_allocator = register_allocator()
+    reg_allocator = register_allocator.get_reg_allocator()
 
     for cfg in cfg_list:
         interference_graph = cfg.interference_graph
         interference_graph.color_graph(reg_allocator)
 
-    render_dot(cfg_list)
+# def coalesce_live_range(cfg_list):
+#     for cfg in cfg_list:
+
+def remove_phi():
+
+    return
+
+def machine_code_gen(cfg:code_generator.CFG):
+    id = cfg.init_bid
+
+    while id <= cfg.b_id:
+        bb = cfg.tree[id]
+        for i in bb.table:
+            ins = code_generator.ins_array[i]
+            
+
+
+
+
+def backend_pass(cfg_list):
+    import copy
+
+    for cfg in cfg_list:
+        interference_graph = cfg.interference_graph
+        register_allocation = interference_graph.color # {node: reg_no}
