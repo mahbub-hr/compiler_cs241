@@ -1,0 +1,24 @@
+main
+var a, b, c, d; {
+	let a <- 2;
+	let b <- a * 4;
+	let c <- 1;
+	let d <- 5;
+
+	if a > 0 then
+        let c <- a + b;
+        if c > b then
+            if d > 2 then
+                let a <- 10;
+            fi
+        else
+            let d <- 4;
+        fi;
+        let c <- 10;
+        if c < a then
+            let d <- 8;
+        fi
+    else
+        let c <- a + d;
+	fi
+}.

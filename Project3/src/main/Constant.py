@@ -3,6 +3,11 @@ CSE = True
 UNDEFINE = "undefine"
 ALREADY_DEFINE = "already defined at line #"
 UNRECOG_SYM = "unrecognize symbol"
+
+def VOID_FUNC_USE(name):
+    "Use of a void function " + name +" is not allowed"
+    return
+    
 def UNEXPECTED_TOKEN(expected, unexpected):
     return f"expected {expected} but found {unexpected}"
 

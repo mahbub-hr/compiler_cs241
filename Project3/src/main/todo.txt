@@ -1,11 +1,17 @@
 Critical:
     1. while.smpl
     2. Function Return
-    3. Evaluate expression: i=3; j=4; i*j?
+    3. draw cfg properly
 
 1. Meaningful error message 
 2. Remove block with single branch
 3. Remove empty while block
 4. Instruction Scheduling
-5. Multi dimensional array
+4.1 Logger to file
 5. Add a debugger
+
+
+Jump Solution:
+    1. At first add nop always
+    2. Then when adding a new instruction check for the previous instruction
+    3. If it's a nop, then replace it

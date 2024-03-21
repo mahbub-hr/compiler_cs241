@@ -1,6 +1,0 @@
-graph G{
-subgraph cluster_main{
-	label=main
-
-}
-}

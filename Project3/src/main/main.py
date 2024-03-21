@@ -7,8 +7,7 @@ import file
 def main():
     sentence = file.read()
     _tokenizer = tokenizer.Tokenizer(sentence)
-    table = symbol_table()
-    parser.init(_tokenizer, table)
+    parser.init(_tokenizer)
     print("Successfully Compiled\n")
     
     return 

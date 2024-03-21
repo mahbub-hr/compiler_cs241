@@ -1,0 +1,13 @@
+main
+
+array[5] a;
+var i, j, b, c;
+
+{
+    let i <- call InputNum();
+    let j<- 5;
+    let a[i] <- call InputNum();
+    let a[j] <- a[i] + 1;
+    let b <- a[i] + 5;
+    let c <- a[j] + 5;
+}

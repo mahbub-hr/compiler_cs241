@@ -267,6 +267,9 @@ class Tokenizer:
                 line_count  = line_count + 1
                 self.next()
 
+            elif self.inp =='\t':
+                self.next()
+                
             else:
                 return
         

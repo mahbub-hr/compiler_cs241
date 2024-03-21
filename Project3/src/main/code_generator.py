@@ -130,14 +130,12 @@ class BB:
                                 ins_array[u].update_x(ins)
                             if ins_array[u].y == i:
                                 ins_array[u].update_y(ins)
-
-                    
-                    
+           
     '''Update var_stat with new instruction id'''
     def update_var_with_new_ins(self, prev_id, new_id):
         for var in self.var_stat:
             if prev_id == self.var_stat[var]:
-               self.update_var(var, new_id)
+               self.update_var_wih_name(var, new_id)
             #    var_usage = self.var_usage[var]
 
         return
@@ -172,7 +170,10 @@ class BB:
 
     def get_var_pointer(self, var):
         return self.var_stat.get(var, None)
-    
+
+    def update_var_wih_name(self, var, ins_id):
+        self.var_stat[var] = ins_id
+
     def update_var(self, symbol):
         var = symbol.name
         self.var_stat[var] = symbol.addr
@@ -229,9 +230,9 @@ class BB:
         
         return y_operand_set
             
-    def live_variable_analysis(self):
+    def live_variable_analysis(self, cfg):
         skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par", "addi"}
-        skip_opcode = {"write", "cmp", "end"}.union(skip_adding_jmp_operand)
+        skip_opcode = {"write", "cmp", "end", "nop"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
         for i in reversed(self.table):
@@ -268,8 +269,13 @@ class BB:
         return live_var_set
 
 
-    def add_nop(self, ins_id):
-        self.append(ins_id)
+    def add_nop(self):
+        if not self.table:
+            inc_pc()
+            ins_array[pc] = instruction(pc, "nop", None, None)
+            self.append(pc)
+
+        return pc
 
     def update_xold(self, var, xold, xnew):
 
@@ -403,6 +409,11 @@ class CFG:
        self.tree[join_bb.id] = join_bb
        self.add_bb_man(join_bb.id, prev, e_label)
 
+    '''
+        Create a BB with incremented bid.
+        Also, copy the previous bid's var state
+        But does not set the next and prev link
+    '''
     def create_bb(self):
         self.inc_bid()
         bb = BB(self.b_id)
@@ -440,12 +451,13 @@ class CFG:
         dom_ins_id = self.find_dom_instruction(instruction)
 
         if dom_ins_id:
-            marked_for_deleted =  self.tree[self.b_id].marked_for_deleted
-            if dom_ins_id in marked_for_deleted:
-                marked_for_deleted[dom_ins_id].append(ins_id)
-            
-            else: 
-                marked_for_deleted[dom_ins_id] = [ins_id]
+            if CSE:
+                marked_for_deleted =  self.tree[self.b_id].marked_for_deleted
+                if dom_ins_id in marked_for_deleted:
+                    marked_for_deleted[dom_ins_id].append(ins_id)
+                
+                else: 
+                    marked_for_deleted[dom_ins_id] = [ins_id]
         
         else:
             self.tree[self.b_id].add_dom_instruction(instruction.opcode, ins_id)
@@ -509,7 +521,7 @@ class CFG:
         bid_list = []
         visited[self.b_id] = True
         self.tree[self.b_id].add_live_var_set(set()) # this is last statement, no live var
-        prev_live_set = self.tree[self.b_id].live_variable_analysis()
+        prev_live_set = self.tree[self.b_id].live_variable_analysis(self)
         bid_list.extend(self.tree[self.b_id].get_parent())
 
         
@@ -521,7 +533,7 @@ class CFG:
             if id  <= self.init_bid:
                 break
 
-            prev_live_set = self.tree[id].live_variable_analysis()
+            prev_live_set = self.tree[id].live_variable_analysis(self)
 
             if id not in visited:
                 visited[id] = True
@@ -556,17 +568,15 @@ pseudo_ins = {}
 pc = 0
 neg_pc = -1
 phi= {}
-phi_x = True
 phi_i=-1
 current_bid = 0
 cfg_list=[]
 ins_array[neg_pc] = instruction(neg_pc, "const", 4, None)
 
 def instantiate_main_CFG():
-    global cfg
+    global cfg, current_bid
     cfg = CFG(current_bid)
     cfg.name = "main"
-    cfg_list.append(cfg)
     cfg.add_const_instruction(neg_pc)
     return cfg
 
@@ -593,98 +603,6 @@ def get_bid():
 
 def get_max_bid():
     return max(cfg.tree.keys())
-
-def set_phix(val):
-    global phi_x 
-    phi_x = val
-
-# For if statement
-# Todo: copy dom instructions from dominating block
-def create_join_bb(prev_bb):
-    global phi_i
-    join_bb = BB(IF_JOIN_BB_ID) 
-    join_bb.var_stat = copy.deepcopy(prev_bb.var_stat)
-    join_bb.dom_instruction = copy.deepcopy(prev_bb.dom_instruction)
-    phi_i = phi_i + 1
-    phi[phi_i] = join_bb
-    join_bb.type = IF_JOIN_BLOCK
-
-# remove phi instruction for which operands are equal, x==y
-# Todo: remove other outer block phi that depend's on this phi.
-def remove_phi_x_eq_y(join_bb):
-    inst_table = join_bb.table
-    phi = join_bb.phi
-
-    for var in list(phi.keys()):
-        ins_id  = phi[var]
-        inst = ins_array[ins_id]
-
-        if inst.x == inst.y:
-            # first update variable state
-            join_bb.update_var(var, inst.x)
-            join_bb.remove_var_usage(var, ins_id)
-            inst_table.remove(ins_id)
-            del phi[var]
-        
-# work with if statement
-'''
-    1. Remove phi with x == y
-    2. Find the id for join bb
-    3. 
-'''
-def add_join_bb(left, right, jump_ins):
-    join_bb = top_phi()
-    remove_phi_x_eq_y(join_bb)
-    join_bb.id = max(left, right) + 1
-    cfg.b_id = join_bb.id
-    join_bb.dom_block.append(cfg.tree[left].dom_block[-1]) # dominating block of if will be the dominating block of join block
-
-    # if there is else block, then add bra instruction
-    # to the if block
-    if right - left > 1 or cfg.tree[right].table:
-        inc_pc()
-        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
-        cfg.tree[left].table.append(pc)
-
-    cfg.add_join_bb(join_bb, left, "fall-through")
-    jump_to = -1
-
-    if cfg.tree[right].table:
-        jump_to = max(cfg.tree[right].table)
-    elif join_bb.table:
-        jump_to = min(join_bb.table)
-    
-    else:   
-        jump_to = add_nop(join_bb.id)
-
-    ins_array[jump_ins].update_y(jump_to)
-    cfg.add_join_bb(join_bb, right, "branch")
-
-def insert_join_bb_while():
-    global phi_i
-    join_bb = cfg.tree[cfg.b_id]
-    phi_i = phi_i + 1
-    phi[phi_i] = join_bb
-
-def link_up_while(join_bid, jump_ins):
-    # No need to add a branch to an empty block
-    # if cfg.tree[cfg.b_id].is_empty():
-    #     ins_array
-
-    # else:
-
-    # Todo:can be done easily just by checking brnach type
-    cfg.tree[join_bid-1].phi_direction = X_OPERAND_BB
-    cfg.tree[get_bid()].phi_direction = Y_OPERAND_BB
-    inc_pc()
-    ins_array[pc] = instruction(pc, "bra", cfg.tree[join_bid].table[0], None)
-    cfg.add_inst_without_cse(pc)
-    cfg.add_bb_man(join_bid, get_bid(), "branch")
-    ins_array[jump_ins].update_y(pc+1)
-    cfg.tree[cfg.b_id].delete_marked_instruction()
-    bb = cfg.create_bb()
-    bb.var_stat = dict(cfg.tree[join_bid].var_stat)
-    cfg.add_bb_man(bb.id, join_bid, "branch")
 
 def pop_phi():
     global phi_i
@@ -727,9 +645,101 @@ def add_nop(b_id):
     if not cfg.tree[b_id].table:
         inc_pc()
         ins_array[pc] = instruction(pc, "nop", None, None)
-        cfg.tree[cfg.b_id].add_nop(pc)
+        cfg.tree[cfg.b_id].append(pc)
 
         return pc
+
+# For if statement
+# Todo: copy dom instructions from dominating block
+def create_join_bb(prev_bb):
+    global phi_i
+    join_bb = BB(IF_JOIN_BB_ID) 
+    join_bb.var_stat = copy.deepcopy(prev_bb.var_stat)
+    join_bb.dom_instruction = copy.deepcopy(prev_bb.dom_instruction)
+    join_bb.dom_block.append(prev_bb.id) # If header is the dominating block of join block
+    phi_i = phi_i + 1
+    phi[phi_i] = join_bb
+    join_bb.type = IF_JOIN_BLOCK
+    join_bb.phi_x_operand = True
+
+    return join_bb
+
+# remove phi instruction for which operands are equal, x==y
+# Todo: remove other outer block phi that depend's on this phi.
+def remove_phi_x_eq_y(join_bb):
+    inst_table = join_bb.table
+    phi = join_bb.phi
+
+    for var in list(phi.keys()):
+        ins_id  = phi[var]
+        inst = ins_array[ins_id]
+
+        if inst.x == inst.y:
+            # first update variable state
+            join_bb.update_var_wih_name(var, inst.x)
+            join_bb.remove_var_usage(var, ins_id)
+            inst_table.remove(ins_id)
+            del phi[var]
+        
+# work with if statement
+'''
+    1. Remove phi with x == y
+    2. Find the id for join bb
+    3. 
+'''
+def add_join_bb(left, right, jump_ins):
+    join_bb = top_phi()
+    remove_phi_x_eq_y(join_bb)
+    join_bb.id = max(left, right) + 1
+    cfg.b_id = join_bb.id
+
+    # if there is else block, then add bra instruction
+    # to the if block
+    join_bb.add_nop()
+    if right - left > 1 or cfg.tree[right].table:
+        inc_pc()
+        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
+        cfg.tree[left].table.append(pc)
+
+    cfg.add_join_bb(join_bb, left, "fall-through")
+    jump_to = -1
+
+    if cfg.tree[right].table:
+        jump_to = max(cfg.tree[right].table)
+    elif join_bb.table:
+        jump_to = min(join_bb.table)
+    
+    else:   
+        jump_to = add_nop(join_bb.id)
+
+    ins_array[jump_ins].update_y(jump_to)
+    cfg.add_join_bb(join_bb, right, "branch")
+
+def insert_join_bb_while():
+    global phi_i
+    join_bb = cfg.tree[cfg.b_id]
+    phi_i = phi_i + 1
+    phi[phi_i] = join_bb
+
+def link_up_while(join_bid, jump_ins):
+    # No need to add a branch to an empty block
+    # if cfg.tree[cfg.b_id].is_empty():
+    #     ins_array
+
+    # else:
+
+    inc_pc()
+    ins_array[pc] = instruction(pc, "bra", cfg.tree[join_bid].table[0], None)
+    cfg.add_inst_without_cse(pc)
+    cfg.add_bb_man(join_bid, get_bid(), "branch")
+    ins_array[jump_ins].update_y(pc+1)
+    cfg.tree[cfg.b_id].delete_marked_instruction()
+    bb = cfg.create_bb()
+    bb.var_stat = dict(cfg.tree[join_bid].var_stat)
+    cfg.add_bb_man(bb.id, join_bid, "branch")
+    pop_phi()
+
+    return
 
 def code_get_var_addr(symbol, load_array=True):
     if symbol.kind == ARRAY:
@@ -745,7 +755,7 @@ def code_assignment(lsymbol, rsymbol):
     # is there any case where xold is not in the dictionary
     cur_bb = cfg.tree[cfg.b_id]
     new_addr = code_get_var_addr(rsymbol)
-    old_addr = code_get_var_addr(lsymbol, False)
+    old_addr = cur_bb.get_var_pointer(lsymbol.name)
 
     # Update the current bb's var state
     if lsymbol.kind == ARRAY:
@@ -776,8 +786,7 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
             ins_array[pc] = instruction(pc, "phi", xold, xold)
             join_bb.phi[identifier] = pc
             join_bb.append_phi(pc)
-            lsymbol.addr = pc
-            join_bb.update_var(lsymbol)
+            join_bb.update_var_wih_name(lsymbol.name, pc)
 
             # update operand usage for phi instruction
             if rsymbol.kind == VAR:
@@ -792,7 +801,7 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
             temp = join_bb.phi[identifier]
         
         # left operand or right operand
-        if phi_x:
+        if join_bb.phi_x_operand:
             ins_array[temp].update_x(xnew)
         
         else:
@@ -836,6 +845,7 @@ def code_func_parameter(param_list):
         inc_pc()
         ins_array[pc] = instruction(pc, "par", param.name, None, PSEUDO_INSTRUCTION)
         cfg.add_inst_without_cse(pc)
+        cfg.tree[cfg.b_id].update_var_wih_name(param.name, pc)
         # update symbol table
         param.addr = pc
         param.var_type = VAR_PAR
@@ -907,8 +917,9 @@ def code_relation(resL, resR, relOp):
     # Todo: check whether they are variable or not
     cfg.update_var_usage(resL.name, pc)
     cfg.update_var_usage(resR.name, -pc)
-
-    ins_array[pc] = instruction(pc, "cmp", resL.addr, resR.addr)
+    addrL = code_get_var_addr(resL)
+    addrR = code_get_var_addr(resR)
+    ins_array[pc] = instruction(pc, "cmp", addrL, addrR)
     cfg.add_instruction(pc)
     inc_pc()
     ins = instruction(pc, relOp_fall[relOp], pc-1, "follow")
@@ -957,9 +968,13 @@ def code_kill(avar):
         inc_pc()
         ins_array[pc] = instruction(pc, "kill", avar.name, None, PSEUDO_INSTRUCTION)
         join_bb.append(pc)
+        join_bb.update_array(avar)
 
-        avar.idx = {}
-        return
+    #Todo: check if array state contain any unknown
+    # index. If yes, then drop. Else, keep it
+    avar.state = {}
+
+    return
 
 def code_array_store(avar, addr):
     code_kill(avar)
@@ -983,12 +998,16 @@ def code_array_load(avar):
     ins_array[pc] = instruction(pc, "load", addr, None)
     cfg.add_inst_without_cse(pc)
     avar.update_array_state(pc)
-    
+    cfg.tree[cfg.b_id].update_array(avar)
+    table = symbol_table.get_symbol_table()
+    table.update(avar.name, avar)
+
     return pc
 
-def code_return():
+def code_return(symbol):
+    addr = code_get_var_addr(symbol)
     inc_pc()
-    ins_array[pc] = instruction(pc, "ret", None, None)
+    ins_array[pc] = instruction(pc, "ret", addr, None)
     cfg.add_inst_without_cse(pc)
 
 def code_end():

@@ -1,13 +1,13 @@
 import os
 
 def get_file_name_without_extension():
-    return "7.1dArray_kill_while"
+    return "6.nested_while"
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)
     current_directory = os.path.dirname(current_file_path)
     test_dir = os.path.dirname(current_directory)
-    test_dir = os.path.join(test_dir, os.path.join("test", "array"))
+    test_dir = os.path.join(test_dir, os.path.join("test", "standard"))
     return test_dir
 
 def get_test_dot_folder_path():

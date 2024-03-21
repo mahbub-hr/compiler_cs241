@@ -5,17 +5,18 @@ import sys
 from Constant import *
 import code_generator
 import reg_allocator
-import copy 
+import copy
+import symbol_table
 
 
 _tokenizer = None
 table = None
 
-def init(tokenizer, symbol_table):
+def init(tokenizer):
     global _tokenizer, table
 
     _tokenizer = tokenizer
-    table = symbol_table
+    table = symbol_table.get_symbol_table()
     computation()
     code_generator.render_dot()
     reg_allocator.live_variable_analysis(code_generator.cfg_list)
@@ -30,6 +31,12 @@ def my_SyntaxError(msg):
     print("Syntax Error:: Line ", tokenizer.line_count ,": ", msg,"\n")
     sys.exit(-1)
     pass
+
+def semantics_error(msg):
+    print("Program Error:: Line ", tokenizer.line_count ,": ", msg,"\n")
+    sys.exit(-1)
+
+    return
 
 def next():
     _tokenizer.next_token()
@@ -82,10 +89,6 @@ def insert_array(array_size):
 
     if ret is not None:
         my_SyntaxError(last_id() + " " +ALREADY_DEFINE + str(symbol.line_count))
-    
-    # insert array stride constant
-    for i in range(len(symbol.stride)):
-        symbol.stride[i] = code_generator.code_constant(symbol.stride[i])
 
     return symbol
 
@@ -113,8 +116,6 @@ def computation():
     match_or_error(MAIN)
     res = 0
     next() # main
-    code_generator.instantiate_main_CFG()
-    main_cfg = code_generator.cfg
 
     while match(VAR) or match(ARRAY):
         var_declaration()
@@ -125,15 +126,18 @@ def computation():
     table.print()
     match_or_error(LCURL)
     next()
-    code_generator.cfg = main_cfg
+    code_generator.cfg =  code_generator.instantiate_main_CFG()
     stat_sequence()
+    code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     code_generator.code_end()
     match_or_error(RCURL)
     next()
     match_or_error(PERIOD)
+    code_generator.cfg_list.append(code_generator.cfg)
     
 
 def var_declaration():
+    symbol_list = []
     var = True
     array_size = []
 
@@ -163,9 +167,11 @@ def var_declaration():
 
     match_or_error(IDENTIFIER)
     if var:
-        insert_var()
+       symbol = insert_var()
+       symbol_list.append(symbol)
     else:
-        insert_array(array_size)
+        symbol = insert_array(array_size)
+        constant_list.extend(symbol.stride)
     next()
 
     while match(COMMA):
@@ -174,43 +180,51 @@ def var_declaration():
         if var:
             insert_var()
         else:
-            insert_array(array_size)
+            symbol = insert_array(array_size)
+            constant_list.extend(symbol.stride)
         next()
 
     match_or_error(SEMICOLON)
     next()
+
+    return constant_list
        
 def func_declaration():
     return_type = True
     if match(VOID):
-        print("Need to work on", "\n")
         return_type = False
         next()
 
     match_or_error(FUNCTION)
+    next()
 
     table.enter_scope()
-    next()
     match_or_error(IDENTIFIER)
     func_name = _tokenizer.last_id
     next()
+
     param_list = formal_param()
     symbol = insert_func(func_name, param_list, return_type)
     match_or_error(SEMICOLON)
     next()
+
     code_generator.cfg = code_generator.CFG(code_generator.current_bid)
     code_generator.cfg.name = func_name
     code_generator.cfg_list.append(code_generator.cfg)
     param_list = code_generator.code_func_parameter(param_list)
     update_symbol(param_list)
     func_body()
+
     match_or_error(SEMICOLON)
     next()
+
     table.exit_scope()
     symbol.cfg = code_generator.cfg
+    symbol.cfg.tree[symbol.cfg.b_id].delete_marked_instruction()
     code_generator.current_bid = code_generator.cfg.b_id+1
     table.insert(symbol.name, symbol)
 
+    return
 
 def formal_param():
     match_or_error(LPAREN)
@@ -237,7 +251,7 @@ def formal_param():
 
 def func_body():
     while match(VAR) or match(ARRAY):
-        var_declaration()
+        constant_list = var_declaration()
     
     match_or_error(LCURL)
     next()
@@ -331,21 +345,21 @@ def func_call():
     res =  code_generator.code_func_call(func_name, args)
 
     if func_name not in code_generator.default_foo:
-        code_generator.cfg.tree[code_generator.get_bid()].add_func_call(symbol.cfg)
-        code_generator.cfg.create_bb()
-        code_generator.cfg.tree[code_generator.get_bid()].add_func_return(symbol.cfg)
-        
+        # code_generator.cfg.tree[code_generator.get_bid()].add_func_call(symbol.cfg)
+        code_generator.cfg.add_bb()
+        # code_generator.cfg.tree[code_generator.get_bid()].add_func_return(symbol.cfg)
+
+    # Model reutrn value as 1. retval(x) if the function has return type. then return 1 as addr     
     symbol.addr = res
 
     return symbol
 
 
 def if_statement():
-    code_generator.set_phix(True)
     prev_bid = code_generator.get_bid()
     prev_bb = code_generator.cfg.tree[prev_bid]
 
-    code_generator.create_join_bb(prev_bb)
+    join_bb = code_generator.create_join_bb(prev_bb)
 
     # If header block
     match_or_error(IF)
@@ -355,6 +369,7 @@ def if_statement():
     code_generator.cfg.tree[prev_bid].delete_marked_instruction()
     
     # Then block
+    join_bb.phi_x_operand = True
     match_or_error(THEN)
     next()
     code_generator.cfg.add_bb()
@@ -366,12 +381,11 @@ def if_statement():
     code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
 
     # Else block
+    code_generator.code_else(prev_bid)
     if match(ELSE):
         next()
-        code_generator.code_else(prev_bid)
-        code_generator.set_phix(False)
+        join_bb.phi_x_operand = False
         stat_sequence()
-        code_generator.set_phix(True)
     
     code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
     right = code_generator.get_max_bid()
@@ -397,7 +411,7 @@ def while_statement():
     # Loop Body
     code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     code_generator.cfg.add_bb()
-    code_generator.set_phix(False)
+    code_generator.cfg.tree[join_bid].phi_x_operand = False
     
     match_or_error(DO)
     next()
@@ -411,7 +425,7 @@ def return_statement():
     match_or_error(RETURN)
     next()
     symbol = E()
-    code_generator.code_return()
+    code_generator.code_return(symbol)
     return
 
 def relation():
@@ -527,5 +541,7 @@ def F():
 
     elif match(CALL):
         symbol = func_call()
+        if symbol.return_type == False:
+            semantics_error(VOID_FUNC_USE(symbol.name))
 
     return symbol

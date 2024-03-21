@@ -1,0 +1,22 @@
+main
+var a,b,c, j;
+array[10] d;
+{
+let d[1] <- 2000;
+let b <- 10 + 10;
+let c <- 1;
+
+ while d[c] > 0 do
+    let c <- call InputNum();
+    let d[c] <- d[1] - (10 + 10);
+    let j <- call InputNum();
+    let d[j] <- d[c] - d[1];
+
+    while d[j] > d[c] do
+        let a <- c + j;
+        let d[a] <- d[j] - d[c];
+        let d[j] <- 2;
+    od;
+od;
+
+}.

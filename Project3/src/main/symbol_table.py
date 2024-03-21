@@ -156,7 +156,7 @@ class symbol_table:
         self.insert_default()
 
     def insert_default(self):
-        inputNum = symbol_info.func_symbol("InputNum", [], return_type=False)
+        inputNum = symbol_info.func_symbol("InputNum", [], return_type=True)
         self.current_scope.insert("InputNum", inputNum)
         
         outputNum = symbol_info.func_symbol("OutputNum", ["x"], return_type= False)
@@ -164,7 +164,6 @@ class symbol_table:
 
         outputNewLine = symbol_info.func_symbol("OutputNewLine", [], return_type= False)
         self.current_scope.insert("OutputNewLine", outputNewLine)
-        
 
     def enter_scope(self):
         self.id = self.id + 1
@@ -214,3 +213,12 @@ class symbol_table:
             self.table[id].print_table()
             id = id -1
 
+table = None
+
+def get_symbol_table():
+    global table
+    if table: 
+        return table
+
+    table = symbol_table()
+    return table
