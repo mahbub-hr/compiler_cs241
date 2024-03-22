@@ -278,7 +278,7 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self, cfg):
-        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par", "addi"}
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "addi"}
         skip_opcode = {"write", "cmp", "end", "nop"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
@@ -290,17 +290,10 @@ class BB:
             if opcode not in skip_opcode:
                  self.live_var_set[i] = set(live_var_set)
 
-            # Pseduo Instr like "par c"
+            # Pseduo Instr like "par c retval x"
             if ins_array[i].type == PSEUDO_INSTRUCTION:
                 continue
             
-            # if ins_array[i].opcode == "phi":
-                
-            # else:
-            # do not add oprands of a jump instruction
-            # if opcode in skip_opcode:
-            #     continue
-
             if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
                 live_var_set.add(ins_array[i].x)
 
@@ -925,6 +918,7 @@ def code_func_call(name, arg_list):
         code_func_argument(arg_list)
         inc_pc()
         inst = instruction(pc, "jsr", name, None, FUNCTION)
+        inst.type = PSEUDO_INSTRUCTION
         ins_array[pc] = inst
         cfg.add_inst_without_cse(pc)
 
@@ -939,6 +933,10 @@ def code_func_parameter(param_list):
         # update symbol table
         param.addr = pc
         param.var_type = VAR_PAR
+        table = symbol_table.get_symbol_table()
+        table.update(param.name, param)
+    
+    return
         
     return param_list
 
@@ -1131,6 +1129,14 @@ def code_return(symbol):
     inc_pc()
     ins_array[pc] = instruction(pc, "ret", addr, None)
     cfg.add_inst_without_cse(pc)
+
+def code_return_val(addr):
+    inc_pc()
+    ins_array[pc] = instruction(pc, "retval", addr, None)
+    ins_array[pc].type = PSEUDO_INSTRUCTION
+    cfg.add_inst_without_cse(pc)
+
+    return pc
 
 def code_end():
     CSE()

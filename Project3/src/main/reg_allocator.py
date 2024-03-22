@@ -77,6 +77,10 @@ class Graph:
 
         self.dot_str = ""
 
+    def add_single_node(self, node):
+        self.graph[node] = set()
+        return
+
     def add_edge(self, node1, node2):
         if node1 == node2:
             return
@@ -172,6 +176,10 @@ def build_interference_graph(bb, graph):
     live_var_set = bb.live_var_set
 
     for i in live_var_set:
+        if not live_var_set[i]:
+            graph.add_single_node(i)
+            continue 
+
         for x in live_var_set[i]:
             graph.add_edge(i, x)
 
@@ -201,6 +209,10 @@ def allocate_register(cfg_list):
     for cfg in cfg_list:
         interference_graph = cfg.interference_graph
         interference_graph.color_graph(reg_allocator)
+
+    render_dot(cfg_list)
+
+    for cfg in cfg_list:
         convert_to_reg_instruction(cfg)
 
     code_generator.render_dot("reg")

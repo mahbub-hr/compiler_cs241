@@ -31,11 +31,39 @@ class reg_instruction:
             reg_ins.string = f"{reg_ins.opcode}"
             return reg_ins
 
+        if ins.opcode == "jsr":
+            reg_ins.string = f"{ins.opcode} {ins.x}"
+            return reg_ins
+        
+        if ins.opcode == "ret":
+            if ins.x <0:
+                reg_ins.string = f"movei R31, {ins_array[ins.x].x}\nret"
+                return reg_ins
+
+            elif ins.x:
+                reg_ins.string = f"move R31, R{register_allocation[ins.x]}\nret"
+                return reg_ins
+            else:
+                reg_ins.string = "ret"
+                return reg_ins
+
+        if ins.opcode == "retval":
+            reg_ins = reg_instruction.create_move_ins(register_allocation[ins.ins_id], 31)
+            return reg_ins
         # 1 reg ins
-        if ins.opcode == "read":
+        if ins.opcode in ["read", "par"]:
             reg_ins.string= f"{reg_ins.opcode} R{register_allocation[ins.ins_id]}"
             return reg_ins
-            
+
+        if ins.opcode == "arg":
+            if ins.x <0:
+                reg_ins.string = f"movei R{register_allocation[ins.ins_id]}, {ins_array[ins.x].x}"
+                return reg_ins
+
+            else:
+                reg_ins.string = f"move R{register_allocation[ins.ins_id]}, R{register_allocation[ins.x]}"
+                return reg_ins
+
         if ins.opcode == "write":
             reg_ins.r1 = register_allocation[ins.x]
             reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}"
