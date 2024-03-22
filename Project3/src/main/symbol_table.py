@@ -35,7 +35,7 @@ class symbol_info:
         var.addr = addr
         var.kind = kind
         var.line_count = tokenizer.line_count
-
+        var.initialized = initialized
         return var
     
     def array_symbol(name, size:list = None, kind = ARRAY, initialized=False):
