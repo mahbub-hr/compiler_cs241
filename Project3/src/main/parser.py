@@ -101,12 +101,6 @@ def insert_func(func_name, param_list, return_type):
 
     return sym
 
-def update_symbol(symbol_list):
-    for symbol in symbol_list:
-        table.update(symbol.name, symbol)
-    
-    return
-
 def print_table():
     if DEBUG:
         table.print()
