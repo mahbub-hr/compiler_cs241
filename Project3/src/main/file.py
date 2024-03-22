@@ -1,20 +1,23 @@
 import os
 
 def get_file_name_without_extension():
-    return "3.nested_while_array"
+    return "3.if_statement"
+
+def get_test_folder_name():
+    return "live var"
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)
     current_directory = os.path.dirname(current_file_path)
     test_dir = os.path.dirname(current_directory)
-    test_dir = os.path.join(test_dir, os.path.join("test", "standard"))
+    test_dir = os.path.join(test_dir, os.path.join("test", get_test_folder_name()))
     return test_dir
 
 def get_test_dot_folder_path():
     current_file_path = os.path.realpath(__file__)
     current_directory = os.path.dirname(current_file_path)
     test_dir = os.path.dirname(current_directory)
-    test_dir = os.path.join(test_dir, os.path.join("resource", "dot", "array"))
+    test_dir = os.path.join(test_dir, os.path.join("resource", "dot", get_test_folder_name()))
     os.makedirs(test_dir, exist_ok=True)
     
     return test_dir

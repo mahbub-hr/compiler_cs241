@@ -3,6 +3,7 @@ import file
 import sys
 
 import code_generator
+from ssa_converter import reg_instruction
 
 class register_allocator:
     reg_allocator = None
@@ -200,11 +201,31 @@ def allocate_register(cfg_list):
     for cfg in cfg_list:
         interference_graph = cfg.interference_graph
         interference_graph.color_graph(reg_allocator)
+        remove_phi(cfg)
 
 # def coalesce_live_range(cfg_list):
 #     for cfg in cfg_list:
 
-def remove_phi():
+def convert_instruction(bb:code_generator.BB, register_allocation):
+    ins_array = []
+    for i in bb.table:
+        ins_array.append(reg_instruction(code_generator.ins_array[i], register_allocation))
+
+    bb.reg_instruction = ins_array
+
+    return
+
+def remove_phi(cfg:code_generator.CFG):
+    #{ins_id: reg no}
+    register_allocation = cfg.interference_graph.color
+
+    id = cfg.init_bid+1
+
+    while id  <= cfg.b_id:
+        bb = cfg.tree[id]
+        convert_instruction(bb, register_allocation)
+
+        id = id + 1
 
     return
 
@@ -215,14 +236,3 @@ def machine_code_gen(cfg:code_generator.CFG):
         bb = cfg.tree[id]
         for i in bb.table:
             ins = code_generator.ins_array[i]
-            
-
-
-
-
-def backend_pass(cfg_list):
-    import copy
-
-    for cfg in cfg_list:
-        interference_graph = cfg.interference_graph
-        register_allocation = interference_graph.color # {node: reg_no}

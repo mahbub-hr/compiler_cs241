@@ -46,7 +46,7 @@ class instruction:
         x = '('+ str(self.x) + ')' if self.x is not None else ""
         y = '('+ str(self.y) + ')' if self.y is not None else ""
         return f"{self.ins_id}: {self.opcode} {x} {y}"
-
+            
 def dict_str(d, indent):
     result = ""
     for key, value in d.items():
@@ -139,7 +139,7 @@ class BB:
     def update_var_with_new_ins(self, prev_id, new_id):
         for var in self.var_stat:
             if prev_id == self.var_stat[var]:
-               self.update_var_wih_name(var, new_id)
+               self.update_var(var, new_id)
             #    var_usage = self.var_usage[var]
 
         return
@@ -273,10 +273,8 @@ class BB:
 
             opcode =  ins_array[i].opcode
 
-            if opcode in skip_opcode:
-                continue
-            
-            self.live_var_set[i] = set(live_var_set)
+            if opcode not in skip_opcode:
+                 self.live_var_set[i] = set(live_var_set)
 
             # Pseduo Instr like "par c"
             if ins_array[i].type == PSEUDO_INSTRUCTION:
@@ -352,8 +350,6 @@ class BB:
         
     def dot_edge(self):
         str_ = ""
-        foo_node=""
-        foo_edge = ""
    
         for i in self.next:
            str_ = str_ + f'bb{self.id}:s->bb{i}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
