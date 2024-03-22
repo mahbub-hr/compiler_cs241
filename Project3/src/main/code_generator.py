@@ -142,6 +142,18 @@ class BB:
                self.update_var_wih_name(var, new_id)
             #    var_usage = self.var_usage[var]
 
+            # array index update 
+            elif isinstance(self.var_stat[var], dict):
+                # considering only 1D array
+                index = self.var_stat[var].keys()
+
+                for idx in index:
+                    if idx == prev_id:
+                        # first copy to the new index
+                        self.var_stat[var][new_id] = self.var_stat[var][prev_id]
+                        del self.var_stat[var][prev_id]
+                        # no more match because its a dictionary
+                        break
         return
 
     def append(self, ins_id):
