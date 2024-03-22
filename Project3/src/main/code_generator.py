@@ -66,7 +66,7 @@ class BB:
         self.call_foo = None
         self.type = None
         self.table = []
-        self.phi_idx = -1
+        self.phi_idx = PHI_START_IDX 
         self.var_usage = {}     
         self.var_stat = {}
         self.live_var_set = {}
@@ -85,6 +85,8 @@ class BB:
         self.dom_instruction = {} # dominating factor
         '''{dom_ins: [simillar dominated instructions], ..}'''
         self.marked_for_deleted= {} 
+
+        self.reg_instruction=[]
 
     def is_empty(self):
         if self.table:
@@ -333,12 +335,16 @@ class BB:
     def dot_node(self):
         ins_str = ""
         live_var = ""
-
+        reg_ins = ""
         for i in self.table:
             ins_str = ins_str + str(ins_array[i]) + "|"
             live_var = live_var + (set_str(self.live_var_set[i]) if i in self.live_var_set else "") + "|"
         
-        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+"}"
+        for i in self.reg_instruction:
+            reg_ins = reg_ins + str(i) + "|"
+
+        
+        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+ "}|{" + reg_ins[:len(reg_ins)-1] +"}"
         var_stat_str = dict_str(self.var_stat, 2) 
         var_usage_str = dict_str(self.var_usage, 2)
 
@@ -757,13 +763,14 @@ def add_join_bb(left, right, jump_ins):
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
 
-    # if there is else block, then add bra instruction
+    # Deprecate: if there is else block, then add bra instruction
     # to the if block
     join_bb.add_nop()
-    if right - left > 1 or cfg.tree[right].table:
-        inc_pc()
-        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
-        cfg.tree[left].table.append(pc)
+    # Depricate
+    # if right - left > 1 or cfg.tree[right].table:
+    inc_pc()
+    ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
+    cfg.tree[left].table.append(pc)
 
     cfg.add_join_bb(join_bb, left, "fall-through")
     jump_to = -1

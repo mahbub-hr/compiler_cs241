@@ -1,10 +1,10 @@
 import os
 
 def get_file_name_without_extension():
-    return "3.if_statement"
+    return "3.while"
 
 def get_test_folder_name():
-    return "live var"
+    return "while"
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)

@@ -201,29 +201,74 @@ def allocate_register(cfg_list):
     for cfg in cfg_list:
         interference_graph = cfg.interference_graph
         interference_graph.color_graph(reg_allocator)
-        remove_phi(cfg)
+        convert_to_reg_instruction(cfg)
+
+    code_generator.render_dot("reg")
 
 # def coalesce_live_range(cfg_list):
 #     for cfg in cfg_list:
 
-def convert_instruction(bb:code_generator.BB, register_allocation):
+def convert_normal_block(bb:code_generator.BB, register_allocation):
     ins_array = []
-    for i in bb.table:
-        ins_array.append(reg_instruction(code_generator.ins_array[i], register_allocation))
+    num_of_ins = len(bb.table)
+    ins_table = bb.table
+    start_ins =0
+    
+    while start_ins < num_of_ins:
+        ins_array.append(reg_instruction.create_ins(code_generator.ins_array[ins_table[start_ins]], register_allocation))
+        start_ins = start_ins + 1
 
     bb.reg_instruction = ins_array
 
     return
 
-def remove_phi(cfg:code_generator.CFG):
+def convert_phi_block(bb, parent_bb:list, register_allocation):
+    b_parent = None
+    f_parent = None
+    b_ssa = 0
+    f_ssa = 0
+
+    i = 0
+    last_phi_idx = bb.phi_idx
+
+    while i <= last_phi_idx:
+        phi_ins = code_generator.ins_array[bb.table[i]]
+        if bb.type == Constant.IF_JOIN_BLOCK:
+            b_parent = parent_bb[0]
+            f_parent = parent_bb[1]
+            b_ssa = phi_ins.x
+            f_ssa = phi_ins.y
+
+        else:
+            b_parent = parent_bb[1]
+            f_parent = parent_bb[0]
+            b_ssa = phi_ins.y
+            f_ssa = phi_ins.x
+
+        reg_instruction.convert_phi_instruction(phi_ins, b_parent, f_parent,b_ssa, f_ssa, register_allocation)
+        i = i + 1
+
+    for j in range(0, i):
+        bb.table.pop(0)
+
+    convert_normal_block(bb, register_allocation)
+
+def convert_to_reg_instruction(cfg:code_generator.CFG):
     #{ins_id: reg no}
     register_allocation = cfg.interference_graph.color
 
     id = cfg.init_bid+1
 
     while id  <= cfg.b_id:
+
         bb = cfg.tree[id]
-        convert_instruction(bb, register_allocation)
+
+        if bb.type == Constant.IF_JOIN_BLOCK or bb.type == Constant.WHILE_JOIN_BB:
+            parent_bb = [cfg.tree[bb.prev[0]], cfg.tree[bb.prev[1]]]
+            convert_phi_block(bb, parent_bb, register_allocation)
+
+        else:
+            convert_normal_block(bb, register_allocation)
 
         id = id + 1
 

@@ -84,6 +84,7 @@ IF_HEADER_BLOCK = 3
 ELSE_BLOCK = 4
 INSTRUCTION = 7
 PSEUDO_INSTRUCTION= 8
+PHI_START_IDX = -1
 
 opcode = {
     "add": 1,
@@ -106,6 +107,7 @@ opcode = {
     "jsr": 18,
     "ret": 19
 }
+BRACH_OPCODE = {"bne", "beq", "ble", "blt", "bge", "bgt", "bra"}
 # relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
 # default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
 # ins_array = {}
