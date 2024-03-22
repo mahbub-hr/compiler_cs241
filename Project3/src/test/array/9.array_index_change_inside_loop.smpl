@@ -1,0 +1,14 @@
+main
+array[10] d;
+var i, j, c;
+
+{
+    let d[1] <- 5;
+    let c <- 1;
+
+    while d[c] < d[c] do 
+        let c <- call InputNum();
+        let i <- d[c] + 1;
+        let j <- d[c] + 2;
+    od;
+}

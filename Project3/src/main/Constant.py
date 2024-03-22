@@ -1,5 +1,5 @@
 DEBUG = True
-CSE = True
+CSE = False
 UNDEFINE = "undefine"
 ALREADY_DEFINE = "already defined at line #"
 UNRECOG_SYM = "unrecognize symbol"
@@ -74,7 +74,8 @@ token_name = {
 # Code Generator
 # opcode
 BP = "bp"
-INT_SIZE_INS = -1
+CONST_ZERO_ADDR = -1
+CONST_FOUR_ADDR = -2
 IF_JOIN_BB_ID = -1 # Replace this
 CONST_BB_ID = 0
 IF_JOIN_BLOCK = 1

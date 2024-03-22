@@ -28,7 +28,7 @@ class symbol_info:
 
         return func
     
-    def var_symbol(name, val = None, addr = None, kind = VAR):
+    def var_symbol(name, val = None, addr = None, kind = VAR, initialized=False):
         var = symbol_info()
         var.name = name
         var.val = val
@@ -38,7 +38,7 @@ class symbol_info:
 
         return var
     
-    def array_symbol(name, size:list = None, kind = ARRAY):
+    def array_symbol(name, size:list = None, kind = ARRAY, initialized=False):
         var = symbol_info()
         var.name = name
         var.size = size
@@ -61,22 +61,6 @@ class symbol_info:
 
         return d
 
-    def get_array_state(self):
-        d = self.find_array_state_dic()
-        i =  self.last_index[-1]
-        if i in d:
-            return d[i]
-
-        return None
-
-    def update_array_state(self, addr):
-        # keep the array state for the 1 D array only
-        d = self.find_array_state_dic()   
-        d[self.last_index[-1]] = addr
-
-        return
-
-    
     def compute_array_stride(size:list):
         strides = []
         stride = 1
@@ -199,7 +183,7 @@ class symbol_table:
         while id >= 0:
             symbol = self.table[id].lookup(name)
             if symbol:
-                return symbol
+                return copy.deepcopy(symbol)
             
             id = id - 1
 
