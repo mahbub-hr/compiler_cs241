@@ -789,6 +789,17 @@ def insert_join_bb_while():
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
 
+    # kill all the array
+    var_state = join_bb.var_stat
+
+    for var in var_state:
+        if isinstance(var_state[var], dict):
+            var_state[var] = {}
+
+    join_bb.var_state = var_state
+
+    return
+
 def link_up_while(join_bid, jump_ins):
     # No need to add a branch to an empty block
     # if cfg.tree[cfg.b_id].is_empty():
@@ -1057,17 +1068,23 @@ def code_array_store(avar, addr):
     return avar
 
 def code_array_load(avar):
+    # always load loop header load.
+    # Never ever try to store this load if 
+    # you don't want to make your life hell
+    if cfg.tree[cfg.b_id].type == WHILE_JOIN_BB:
+        avar.addr = array_load(avar)
+        return avar
+
     # avoid duplicate load
     # Todo: if there is a kill, always load
-    # ret = cfg.tree[cfg.b_id].get_array_state(avar.name, avar.last_index)
+    ret = cfg.tree[cfg.b_id].get_array_state(avar.name, avar.last_index)
 
-    # if ret is not None:
-    #     # if cfg.tree[cfg.b_id].type == WHILE_JOIN_BB:
-    #     #     array_load(avar)
-    #     # else:
-    #         return ret
-    avar.addr =  array_load(avar)
-
+    if ret is not None:
+            avar.addr = ret
+    else:
+        avar.addr =  array_load(avar)
+        cfg.tree[cfg.b_id].update_array(avar.name, pc, avar.last_index)
+   
     return avar
 
 def array_load(avar):        
@@ -1075,8 +1092,7 @@ def array_load(avar):
     inc_pc()
     ins_array[pc] = instruction(pc, "load", addr, None)
     cfg.add_inst_without_cse(pc)
-    cfg.tree[cfg.b_id].update_array(avar.name, pc, avar.last_index)
-    
+     
     return pc
 
 def code_get_var_addr(symbol, load_array=True):
