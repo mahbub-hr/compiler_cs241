@@ -22,7 +22,6 @@ def init(tokenizer):
     reg_allocator.live_variable_analysis(code_generator.cfg_list)
     code_generator.render_dot("live_var")
     reg_allocator.allocate_register(code_generator.cfg_list)
-    reg_allocator.render_dot(code_generator.cfg_list)
 
 
 # Todo: show warning for unitialized variable
@@ -214,7 +213,6 @@ def func_declaration():
     code_generator.cfg.name = func_name
     code_generator.cfg_list.append(code_generator.cfg)
     param_list = code_generator.code_func_parameter(param_list)
-    update_symbol(param_list)
     func_body()
 
     match_or_error(SEMICOLON)
@@ -323,7 +321,8 @@ def func_call():
         arg_symbol = E()
         if arg_symbol:
             if arg_symbol.val:
-                args.append(arg_symbol.val) # Todo: use code constant
+                arg_symbol.addr = code_generator.code_constant(arg_symbol.val)
+                args.append(arg_symbol.addr)
             
             else:
                 # can be a variable or array
@@ -335,7 +334,8 @@ def func_call():
             arg_symbol = E()
             if arg_symbol:
                 if symbol.val:
-                    args.append(arg_symbol.val)
+                    arg_symbol.addr = code_generator.code_constant(arg_symbol.val)
+                    args.append(arg_symbol.addr)
             
                 else:
                     addr = arg_symbol.addr
@@ -349,6 +349,7 @@ def func_call():
     if func_name not in code_generator.default_foo:
         # code_generator.cfg.tree[code_generator.get_bid()].add_func_call(symbol.cfg)
         code_generator.cfg.add_bb()
+        res = code_generator.code_return_val(res)
         # code_generator.cfg.tree[code_generator.get_bid()].add_func_return(symbol.cfg)
 
     # Model reutrn value as 1. retval(x) if the function has return type. then return 1 as addr     

@@ -46,7 +46,7 @@ class instruction:
         x = '('+ str(self.x) + ')' if self.x is not None else ""
         y = '('+ str(self.y) + ')' if self.y is not None else ""
         return f"{self.ins_id}: {self.opcode} {x} {y}"
-
+            
 def dict_str(d, indent):
     result = ""
     for key, value in d.items():
@@ -66,7 +66,7 @@ class BB:
         self.call_foo = None
         self.type = None
         self.table = []
-        self.phi_idx = -1
+        self.phi_idx = PHI_START_IDX 
         self.var_usage = {}     
         self.var_stat = {}
         self.live_var_set = {}
@@ -85,6 +85,8 @@ class BB:
         self.dom_instruction = {} # dominating factor
         '''{dom_ins: [simillar dominated instructions], ..}'''
         self.marked_for_deleted= {} 
+
+        self.reg_instruction=[]
 
     def is_empty(self):
         if self.table:
@@ -276,7 +278,7 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self, cfg):
-        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par", "addi"}
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "addi"}
         skip_opcode = {"write", "cmp", "end", "nop"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
@@ -285,22 +287,13 @@ class BB:
 
             opcode =  ins_array[i].opcode
 
-            if opcode in skip_opcode:
-                continue
-            
-            self.live_var_set[i] = set(live_var_set)
+            if opcode not in skip_opcode:
+                 self.live_var_set[i] = set(live_var_set)
 
-            # Pseduo Instr like "par c"
+            # Pseduo Instr like "par c retval x"
             if ins_array[i].type == PSEUDO_INSTRUCTION:
                 continue
             
-            # if ins_array[i].opcode == "phi":
-                
-            # else:
-            # do not add oprands of a jump instruction
-            # if opcode in skip_opcode:
-            #     continue
-
             if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
                 live_var_set.add(ins_array[i].x)
 
@@ -347,12 +340,16 @@ class BB:
     def dot_node(self):
         ins_str = ""
         live_var = ""
-
+        reg_ins = ""
         for i in self.table:
             ins_str = ins_str + str(ins_array[i]) + "|"
             live_var = live_var + (set_str(self.live_var_set[i]) if i in self.live_var_set else "") + "|"
         
-        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+"}"
+        for i in self.reg_instruction:
+            reg_ins = reg_ins + str(i) + "|"
+
+        
+        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+ "}|{" + reg_ins[:len(reg_ins)-1] +"}"
         var_stat_str = dict_str(self.var_stat, 2) 
         var_usage_str = dict_str(self.var_usage, 2)
 
@@ -364,8 +361,6 @@ class BB:
         
     def dot_edge(self):
         str_ = ""
-        foo_node=""
-        foo_edge = ""
    
         for i in self.next:
            str_ = str_ + f'bb{self.id}:s->bb{i}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
@@ -769,13 +764,14 @@ def add_join_bb(left, right, jump_ins):
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
 
-    # if there is else block, then add bra instruction
+    # Deprecate: if there is else block, then add bra instruction
     # to the if block
     join_bb.add_nop()
-    if right - left > 1 or cfg.tree[right].table:
-        inc_pc()
-        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
-        cfg.tree[left].table.append(pc)
+    # Depricate
+    # if right - left > 1 or cfg.tree[right].table:
+    inc_pc()
+    ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
+    cfg.tree[left].table.append(pc)
 
     cfg.add_join_bb(join_bb, left, "fall-through")
     jump_to = -1
@@ -916,6 +912,7 @@ def code_func_call(name, arg_list):
         code_func_argument(arg_list)
         inc_pc()
         inst = instruction(pc, "jsr", name, None, FUNCTION)
+        inst.type = PSEUDO_INSTRUCTION
         ins_array[pc] = inst
         cfg.add_inst_without_cse(pc)
 
@@ -930,6 +927,10 @@ def code_func_parameter(param_list):
         # update symbol table
         param.addr = pc
         param.var_type = VAR_PAR
+        table = symbol_table.get_symbol_table()
+        table.update(param.name, param)
+    
+    return
         
     return param_list
 
@@ -1122,6 +1123,14 @@ def code_return(symbol):
     inc_pc()
     ins_array[pc] = instruction(pc, "ret", addr, None)
     cfg.add_inst_without_cse(pc)
+
+def code_return_val(addr):
+    inc_pc()
+    ins_array[pc] = instruction(pc, "retval", addr, None)
+    ins_array[pc].type = PSEUDO_INSTRUCTION
+    cfg.add_inst_without_cse(pc)
+
+    return pc
 
 def code_end():
     cse()
