@@ -100,10 +100,6 @@ def insert_func(func_name, param_list, return_type):
 
     return sym
 
-def print_table():
-    if DEBUG:
-        table.print()
-
 def computation():
     next()
     match_or_error(MAIN)

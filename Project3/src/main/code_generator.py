@@ -780,13 +780,8 @@ def add_join_bb(left, right, jump_ins):
     cfg.add_join_bb(join_bb, left, "fall-through")
     jump_to = -1
 
-    if cfg.tree[right].table:
-        jump_to = max(cfg.tree[right].table)
-    elif join_bb.table:
-        jump_to = min(join_bb.table)
-    
-    else:   
-        jump_to = add_nop(join_bb.id)
+    cfg.tree[right].add_nop()
+    jump_to = max(cfg.tree[right].table)
 
     ins_array[jump_ins].update_y(jump_to)
     cfg.add_join_bb(join_bb, right, "branch")
