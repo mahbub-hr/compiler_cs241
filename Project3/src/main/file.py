@@ -1,10 +1,23 @@
 import os
-
+import parser
+import tokenizer
+filename =""
 def get_file_name_without_extension():
-    return "1while_while"
+    global filename
+    return filename
 
 def get_test_folder_name():
     return "standard"
+
+def run_test():
+    global filename
+    for file in os.listdir(get_test_folder_path()):
+        filename,ext = os.path.splitext(file)
+        print(f"File:: {filename} =====> starting ... \n")
+        sentence = read()
+        _tokenizer = tokenizer.Tokenizer(sentence)
+        parser.init(_tokenizer)
+        print(f"File:: {filename} =====> Done\n")
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)

@@ -5,9 +5,7 @@ import file
 
 
 def main():
-    sentence = file.read()
-    _tokenizer = tokenizer.Tokenizer(sentence)
-    parser.init(_tokenizer)
+    file.run_test() 
     print("Successfully Compiled\n")
     
     return 
