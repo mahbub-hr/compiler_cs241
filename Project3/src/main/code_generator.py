@@ -139,7 +139,7 @@ class BB:
     def update_var_with_new_ins(self, prev_id, new_id):
         for var in self.var_stat:
             if prev_id == self.var_stat[var]:
-               self.update_var_wih_name(var, new_id)
+               self.update_var(var, new_id)
             #    var_usage = self.var_usage[var]
 
             # array index update 
@@ -543,16 +543,12 @@ class CFG:
         return self.tree[self.init_bid].append_const(ins_id)
 
    #  can make it efficient: start bid and end bid
-    def update_xold(self, var, join_bid, xold, xnew):
-        node = [join_bid]
-        visited = {}
+    def update_xold(self, var, join_bid, end_bid, xold, xnew):
+        node = join_bid
 
-        while node:
-            id = node.pop()
-            node = node + self.tree[id].next
-            if id not in visited:
-                visited[id] = True
-                self.tree[id].update_xold(var, xold, xnew)
+        while node <= end_bid:
+            self.tree[node].update_xold(var, xold, xnew)
+            node = node +1
 
 # Todo
     def remove_last_empty_bb(self):
@@ -880,7 +876,7 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
                 join_bb.update_var_usage(rsymbol.name, -temp)
             # update all uses of xold by phi
             if join_bb.type != IF_JOIN_BLOCK:
-                cfg.update_xold(identifier,join_bb.id, xold, pc)
+                cfg.update_xold(identifier,join_bb.id, cfg.b_id, xold, pc)
 
             join_bb.update_var_usage(lsymbol.name, temp)
         
@@ -893,8 +889,6 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
         
         else:
             ins_array[temp].update_y(xnew)
-
-    
 
         xnew = pc
 

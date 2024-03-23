@@ -1,7 +1,7 @@
 import os
 
 def get_file_name_without_extension():
-    return "7.redundant_load"
+    return "1while_while"
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)
