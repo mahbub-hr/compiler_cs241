@@ -250,7 +250,7 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
             f_parent = parent_bb[1]
             b_ssa = phi_ins.x
             f_ssa = phi_ins.y
-            reg_instruction.convert_phi_instruction(phi_ins, b_parent, f_parent,b_ssa, f_ssa, register_allocation)
+            reg_instruction.convert_IF_phi_instruction(phi_ins, b_parent, f_parent,b_ssa, f_ssa, register_allocation)
         
         else:
             f_parent = parent_bb[0]

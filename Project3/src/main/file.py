@@ -1,7 +1,7 @@
 import os
 
 def get_file_name_without_extension():
-    return "4.func"
+    return "1while_while"
 
 def get_test_folder_name():
     return "standard"
