@@ -1124,11 +1124,11 @@ def code_return(symbol):
     cfg.add_inst_without_cse(pc)
 
 def code_end():
-    CSE()
+    cse()
     inc_pc()
     ins_array[pc] = instruction(pc, "end", None, None)
     cfg.add_inst_without_cse(pc)
 
-def CSE():
+def cse():
     if CSE:
         cfg.delete_marked_instruction()

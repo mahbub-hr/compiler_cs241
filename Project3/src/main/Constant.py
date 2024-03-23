@@ -1,5 +1,5 @@
 DEBUG = True
-CSE = False
+CSE = True
 UNDEFINE = "undefine"
 ALREADY_DEFINE = "already defined at line #"
 UNRECOG_SYM = "unrecognize symbol"
