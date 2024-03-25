@@ -1,0 +1,27 @@
+main
+var x, y;
+array [5] a;
+
+function factorial(num);
+var result;
+{
+  if num == 0 then
+      let result <- 1;
+    else
+      let result <- num * call factorial(num - 1);
+    fi;
+    return result;
+  };
+
+{
+  let x <- 1;
+  let y <- 0;
+
+  while y < 5 do
+    let a[y] <- call factorial(y);
+    let y <- y + 1;
+  od;
+
+  let y <- call factorial(x);
+  call OutputNum(y);
+}.

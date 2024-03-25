@@ -3,6 +3,7 @@ import file
 import sys
 
 import code_generator
+from ssa_converter import reg_instruction
 
 class register_allocator:
     reg_allocator = None
@@ -75,6 +76,10 @@ class Graph:
     "burlywood", "cadetblue", "chartreuse"]
 
         self.dot_str = ""
+
+    def add_single_node(self, node):
+        self.graph[node] = set()
+        return
 
     def add_edge(self, node1, node2):
         if node1 == node2:
@@ -171,6 +176,10 @@ def build_interference_graph(bb, graph):
     live_var_set = bb.live_var_set
 
     for i in live_var_set:
+        if not live_var_set[i]:
+            graph.add_single_node(i)
+            continue 
+
         for x in live_var_set[i]:
             graph.add_edge(i, x)
 
@@ -201,10 +210,78 @@ def allocate_register(cfg_list):
         interference_graph = cfg.interference_graph
         interference_graph.color_graph(reg_allocator)
 
+    render_dot(cfg_list)
+
+    for cfg in cfg_list:
+        convert_to_reg_instruction(cfg)
+
+    code_generator.render_dot("reg")
+
 # def coalesce_live_range(cfg_list):
 #     for cfg in cfg_list:
 
-def remove_phi():
+def convert_normal_block(bb:code_generator.BB, register_allocation):
+    ins_array = []
+    num_of_ins = len(bb.table)
+    ins_table = bb.table
+    start_ins =0
+    
+    while start_ins < num_of_ins:
+        ins_array.append(reg_instruction.create_ins(code_generator.ins_array[ins_table[start_ins]], register_allocation))
+        start_ins = start_ins + 1
+
+    bb.reg_instruction = ins_array
+
+    return
+
+def convert_phi_block(bb, parent_bb:list, register_allocation):
+    b_parent = None
+    f_parent = None
+    b_ssa = 0
+    f_ssa = 0
+
+    i = 0
+    last_phi_idx = bb.phi_idx
+
+    while i <= last_phi_idx:
+        phi_ins = code_generator.ins_array[bb.table[i]]
+        if bb.type == Constant.IF_JOIN_BLOCK:
+            b_parent = parent_bb[0]
+            f_parent = parent_bb[1]
+            b_ssa = phi_ins.x
+            f_ssa = phi_ins.y
+            reg_instruction.convert_IF_phi_instruction(phi_ins, b_parent, f_parent,b_ssa, f_ssa, register_allocation)
+        
+        else:
+            f_parent = parent_bb[0]
+            b_parent = parent_bb[1]
+            reg_instruction.conver_WHILE_phi_instruction(phi_ins, b_parent, f_parent, register_allocation)
+
+        i = i + 1
+
+    for j in range(0, i):
+        bb.table.pop(0)
+
+    convert_normal_block(bb, register_allocation)
+
+def convert_to_reg_instruction(cfg:code_generator.CFG):
+    #{ins_id: reg no}
+    register_allocation = cfg.interference_graph.color
+
+    id = cfg.init_bid+1
+
+    while id  <= cfg.b_id:
+
+        bb = cfg.tree[id]
+
+        if bb.type == Constant.IF_JOIN_BLOCK or bb.type == Constant.WHILE_JOIN_BB:
+            parent_bb = [cfg.tree[bb.prev[0]], cfg.tree[bb.prev[1]]]
+            convert_phi_block(bb, parent_bb, register_allocation)
+
+        else:
+            convert_normal_block(bb, register_allocation)
+
+        id = id + 1
 
     return
 
@@ -215,14 +292,3 @@ def machine_code_gen(cfg:code_generator.CFG):
         bb = cfg.tree[id]
         for i in bb.table:
             ins = code_generator.ins_array[i]
-            
-
-
-
-
-def backend_pass(cfg_list):
-    import copy
-
-    for cfg in cfg_list:
-        interference_graph = cfg.interference_graph
-        register_allocation = interference_graph.color # {node: reg_no}

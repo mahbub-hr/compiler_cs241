@@ -16,6 +16,10 @@ class instruction:
         self.add_operand_usage(y)
 
     def add_operand_usage(self, x):
+        # if a constant instruction then do not add since it is a value not operand
+        if self.ins_id < 0:
+            return
+
         if x in ins_ref_list:
             if self.ins_id not in ins_ref_list[x]:
                 ins_ref_list[x].append(self.ins_id)
@@ -42,7 +46,14 @@ class instruction:
         x = '('+ str(self.x) + ')' if self.x is not None else ""
         y = '('+ str(self.y) + ')' if self.y is not None else ""
         return f"{self.ins_id}: {self.opcode} {x} {y}"
+    
+    def create_instruction(opcode, x, y, type_ = INSTRUCTION):
+        inc_pc()
+        ins = instruction(pc, opcode, x, y, type_)
+        ins_array[pc] = ins
 
+        return ins
+            
 def dict_str(d, indent):
     result = ""
     for key, value in d.items():
@@ -62,7 +73,7 @@ class BB:
         self.call_foo = None
         self.type = None
         self.table = []
-        self.phi_idx = -1
+        self.phi_idx = PHI_START_IDX 
         self.var_usage = {}     
         self.var_stat = {}
         self.live_var_set = {}
@@ -82,11 +93,111 @@ class BB:
         '''{dom_ins: [simillar dominated instructions], ..}'''
         self.marked_for_deleted= {} 
 
+        self.reg_instruction=[]
+
     def is_empty(self):
         if self.table:
             return False
         
         return True
+    
+    def set_ins_bid(self, ins_id):
+        ins_array[ins_id].bid = self.id
+
+    def append(self, ins_id):
+        self.set_ins_bid(ins_id)
+        self.table.append(ins_id)
+
+        return ins_id
+    
+    def append_phi(self, ins_id):
+        self.set_ins_bid(ins_id)
+        self.phi_idx = self.phi_idx + 1
+        self.table.insert(self.phi_idx, ins_id)
+
+    def append_kill(self, ins_id):
+        self.set_ins_bid(ins_id)
+        self.table.insert(0, ins_id)
+
+    def append_const(self, ins_id):
+        self.set_ins_bid(ins_id)
+        for i in self.table:
+            if ins_array[i].x == ins_array[ins_id].x:
+                inc_negpc()
+                return i
+        
+        self.table.append(ins_id)
+        return ins_id
+    
+    def append_inst_without_cse(self, ins_id):
+        self.set_ins_bid(ins_id)
+        self.table.append(ins_id)
+        return ins_id
+
+    def add_children(self, id):
+        self.next.append(id)
+
+    def add_parent(self, id):
+        self.prev.append(id)
+
+    def get_var_pointer(self, var):
+        return self.var_stat.get(var, None)
+
+    def update_var(self, var, ins_id):
+        self.var_stat[var] = ins_id
+
+    def find_array_state_dic(self, array_name, last_index:list):
+        d = None
+        if array_name not in self.var_stat:
+            d = {}
+            self.var_stat[array_name] = d
+
+        else:
+            d = self.var_stat[array_name]
+
+        for i in last_index[:-1]:
+            if i not in d:
+                d[i] = {}
+            
+            d = d[i] 
+
+        return d
+
+    def get_array_state(self, var, last_index:list):
+        d = self.find_array_state_dic(var, last_index)
+        i =  last_index[-1]
+        if i in d:
+            return d[i]
+
+        return None
+
+    def update_array(self, var, addr, last_index:list):
+        d = self.find_array_state_dic(var, last_index)
+        d[last_index[-1]] = addr
+
+        return
+    
+    def kill_array(self, var):
+        self.var_stat[var] = {}
+
+    def update_var_usage(self, var, ins_id):
+        if var not in self.var_usage:
+            self.var_usage[var] = [ins_id]
+        else:
+            self.var_usage[var].append(ins_id)
+
+    # Success: return the var name
+    # Fail: return None
+    def remove_var_usage(self, var, ins_id):
+        if var in self.var_usage:
+            self.var_usage[var].remove(ins_id)
+
+            return var
+
+        return None
+
+    def get_parent(self):
+        return self.prev
 
     def add_dom_instruction(self, opcode, ins_id):
         opcode_to_excl = ['read', 'phi', 'bra']
@@ -114,99 +225,91 @@ class BB:
             
         return None
     
+    def add_to_marked_for_deleted(self, dom_ins_id, ins_id):
+        if dom_ins_id in self.marked_for_deleted:
+            self.marked_for_deleted[dom_ins_id].append(ins_id)
+            
+        else: 
+            self.marked_for_deleted[dom_ins_id] = [ins_id]
+
+        return
+
     def delete_marked_instruction(self):
-        for ins in self.marked_for_deleted:
+        not_deleted_ins = []
+        for dom_ins in self.marked_for_deleted:
             # these instructions will be deleted
-            marked_for_deleted = self.marked_for_deleted[ins]
+            marked_for_deleted = self.marked_for_deleted[dom_ins]
             for i in marked_for_deleted:
+                # already been deleted in the previous pass
+                if i not in self.table:
+                    continue
+
                 # operands might change, recheck for equivalence again
-                if ins_array[ins] == ins_array[i]:
-                    self.update_var_with_new_ins(i, ins)
+                if ins_array[dom_ins] == ins_array[i]:
+                    self.update_var_with_new_ins(i, dom_ins)
+                    self.update_instruction_reference(i, dom_ins)
                     self.table.remove(i)
-                    if i in ins_ref_list:
-                        usage = ins_ref_list[i]
-                        for u in usage:
-                            if ins_array[u].x == i:
-                                ins_array[u].update_x(ins)
-                            if ins_array[u].y == i:
-                                ins_array[u].update_y(ins)
-           
+                    # self.dom_instruction[ins_array[i].opcode].remove(i)
+                # remove from the marked for deleted
+                else:
+                    not_deleted_ins.append(i)
+
+            for i in not_deleted_ins:
+                marked_for_deleted.remove(i)
+
+        return not_deleted_ins
+
+    def update_instruction_reference(self, prev_id, new_id):
+        if prev_id in ins_ref_list:
+            usage = ins_ref_list[prev_id]
+            for u in usage:
+                if ins_array[u].x == prev_id:
+                    ins_array[u].update_x(new_id)
+                if ins_array[u].y == prev_id:
+                    ins_array[u].update_y(new_id)
+        
+        return
+
     '''Update var_stat with new instruction id'''
     def update_var_with_new_ins(self, prev_id, new_id):
         for var in self.var_stat:
             if prev_id == self.var_stat[var]:
-               self.update_var_wih_name(var, new_id)
+               self.update_var(var, new_id)
             #    var_usage = self.var_usage[var]
 
+            # array index update 
+            elif isinstance(self.var_stat[var], dict):
+                # considering only 1D array
+                index = self.var_stat[var].keys()
+
+                for idx in index:
+                    if idx == prev_id:
+                        # first copy to the new index
+                        self.var_stat[var][new_id] = self.var_stat[var][prev_id]
+                        del self.var_stat[var][prev_id]
+                        # no more match because its a dictionary
+                        break
         return
 
-    def append(self, ins_id):
-        self.table.append(ins_id)
+    # remove phi instruction for which operands are equal, x==y
+    # Todo: remove other outer block phi that depend's on this phi.
+    def remove_phi_x_eq_y(self):
+        if not self.phi:
+            return
 
-        return ins_id
+        inst_table = self.table
+        phi = self.phi
+
+        for var in list(phi.keys()):
+            ins_id  = phi[var]
+            inst = ins_array[ins_id]
+
+            if inst.x == inst.y:
+                # first update variable state
+                self.add_to_marked_for_deleted(inst.x, ins_id)
+
+        return
     
-    def append_phi(self, ins_id):
-        self.phi_idx = self.phi_idx + 1
-        self.table.insert(self.phi_idx, ins_id)
-
-    def append_const(self, ins_id):
-        for i in self.table:
-            if ins_array[i].x == ins_array[ins_id].x:
-                inc_negpc()
-                return i
-        
-        self.table.append(ins_id)
-        return ins_id
-    
-    def append_inst_without_cse(self, ins_id):
-        self.table.append(ins_id)
-        return ins_id
-
-    def add_children(self, id):
-        self.next.append(id)
-
-    def add_parent(self, id):
-        self.prev.append(id)
-
-    def get_var_pointer(self, var):
-        return self.var_stat.get(var, None)
-
-    def update_var_wih_name(self, var, ins_id):
-        self.var_stat[var] = ins_id
-
-    def update_var(self, symbol):
-        var = symbol.name
-        self.var_stat[var] = symbol.addr
-
-    def update_array(self, symbol):
-        var = symbol.name
-        self.var_stat[var] = copy.deepcopy(symbol.state)
-    
-    def update_var_usage(self, var, ins_id):
-        if var not in self.var_usage:
-            self.var_usage[var] = [ins_id]
-        else:
-            self.var_usage[var].append(ins_id)
-
-    # Success: return the var name
-    # Fail: return None
-    def remove_var_usage(self, var, ins_id):
-        if var in self.var_usage:
-            self.var_usage[var].remove(ins_id)
-
-            return var
-
-        return None
-
-    def get_parent(self):
-        return self.prev
-
-    # def get_parent_with_larger_bid(self):
-    #     return self.prev[:-1]
-
-    # def get_parent_with_smaller_bid(self):
-    #     return self.prev[0]
-
     def add_live_var_set(self, prev_live_var_set):
         if self.prev_live_var_set:
             self.prev_live_var_set = self.prev_live_var_set.union(prev_live_var_set)
@@ -231,8 +334,9 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self, cfg):
-        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "par", "addi"}
-        skip_opcode = {"write", "cmp", "end", "nop"}.union(skip_adding_jmp_operand)
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr"}
+        skip_opcode = {"write", "store", "cmp", "end", "nop","kill", ASSIGN_OPCODE}.union(skip_adding_jmp_operand)
+        skip_adding_operand = {"addi", "par", "retval", ASSIGN_OPCODE, "kill", "addi"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
         for i in reversed(self.table):
@@ -240,22 +344,13 @@ class BB:
 
             opcode =  ins_array[i].opcode
 
-            if opcode in skip_opcode:
+            if opcode not in skip_opcode:
+                 self.live_var_set[i] = set(live_var_set)
+
+            # Pseduo Instr like "par c retval x assign(c)(4)"
+            if opcode in skip_adding_operand:
                 continue
             
-            self.live_var_set[i] = set(live_var_set)
-
-            # Pseduo Instr like "par c"
-            if ins_array[i].type == PSEUDO_INSTRUCTION:
-                continue
-            
-            # if ins_array[i].opcode == "phi":
-                
-            # else:
-            # do not add oprands of a jump instruction
-            # if opcode in skip_opcode:
-            #     continue
-
             if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
                 live_var_set.add(ins_array[i].x)
 
@@ -289,6 +384,8 @@ class BB:
             # right opperand
             if i < 0 and ins_array[-i].y == xold:
                 ins_array[-i].y = xnew
+                if ins_array[-i].opcode == ASSIGN_OPCODE:
+                    self.update_var(ins_array[-i].x, xnew)
 
         return
                 
@@ -302,12 +399,16 @@ class BB:
     def dot_node(self):
         ins_str = ""
         live_var = ""
-
+        reg_ins = ""
         for i in self.table:
             ins_str = ins_str + str(ins_array[i]) + "|"
             live_var = live_var + (set_str(self.live_var_set[i]) if i in self.live_var_set else "") + "|"
         
-        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+"}"
+        for i in self.reg_instruction:
+            reg_ins = reg_ins + str(i) + "|"
+
+        
+        ins_str = "{" + ins_str[:len(ins_str)-1] + "}|{" + live_var[:len(live_var)-1]+ "}|{" + reg_ins[:len(reg_ins)-1] +"}"
         var_stat_str = dict_str(self.var_stat, 2) 
         var_usage_str = dict_str(self.var_usage, 2)
 
@@ -319,8 +420,6 @@ class BB:
         
     def dot_edge(self):
         str_ = ""
-        foo_node=""
-        foo_edge = ""
    
         for i in self.next:
            str_ = str_ + f'bb{self.id}:s->bb{i}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
@@ -352,7 +451,8 @@ class CFG:
     def __init__(self, init_bid):
         self.tree = {}
         self.b_id = init_bid
-        self.init_bid = init_bid
+        self.init_bid = init_bid # bid for const
+        self.first_non_const_bid = self.init_bid + 1
         self.phi = {}
         self.default()
 
@@ -371,13 +471,30 @@ class CFG:
     def default(self):
         global neg_pc
         self.tree[self.b_id] = BB(self.b_id)
+        self.init_constant([CONST_FOUR_ADDR, CONST_ZERO_ADDR])
         self.add_bb()
 
-    '''
-    Add an immidiate basic block just after the last block
-    CFG grows linearly
-    '''
+    def init_constant(self, constant_addr_list:list):
+        '''
+            Constant: 0, 4
+        '''
+        for const_addr in constant_addr_list:
+            self.add_const_instruction(const_addr)
+
+        return
+
+    def init_var(self, symbol_list:list):
+        for symbol in symbol_list:
+            if symbol.kind == VAR:
+                self.tree[self.first_non_const_bid].update_var(symbol.name, CONST_ZERO_ADDR)
+
+        return
+
     def add_bb(self):
+        '''
+        Add an immidiate basic block just after the last block
+        CFG grows linearly
+        '''
         parent = self.b_id
         # No Need to create a new block
         if parent>self.init_bid and self.tree[parent].is_empty():
@@ -431,8 +548,10 @@ class CFG:
     def get_var_pointer(self, var):
         return self.tree[self.b_id].get_var_pointer(var)
     
-    def find_dom_instruction(self, instruction):
-        bid = self.b_id
+    def find_dom_instruction(self, instruction, bid=None):
+        if bid is None:
+            bid = self.b_id
+
         while bid is not None and bid > self.init_bid:
             bb = self.tree[bid]
             ins_id = bb.find_dom_instruction(instruction)
@@ -445,22 +564,30 @@ class CFG:
         # finished searching up to top-most dominator
         return None
 
-    def add_instruction(self, ins_id):
-        # find the dominating instruction
+    def add_dom_instruction(self, ins_id, bid = None):
+        if bid is None:
+            bid = self.b_id
+
         instruction = ins_array[ins_id]
-        dom_ins_id = self.find_dom_instruction(instruction)
+        dom_ins_id = self.find_dom_instruction(instruction, bid)
 
         if dom_ins_id:
-            if CSE:
-                marked_for_deleted =  self.tree[self.b_id].marked_for_deleted
-                if dom_ins_id in marked_for_deleted:
-                    marked_for_deleted[dom_ins_id].append(ins_id)
-                
-                else: 
-                    marked_for_deleted[dom_ins_id] = [ins_id]
-        
+            self.tree[bid].add_to_marked_for_deleted(dom_ins_id, ins_id)
+
         else:
-            self.tree[self.b_id].add_dom_instruction(instruction.opcode, ins_id)
+            self.tree[bid].add_dom_instruction(instruction.opcode, ins_id)
+
+        return dom_ins_id
+
+    def add_instruction(self, ins_id):
+        '''
+            IF: Find the dom instruction that is CS
+                Added to the marked for deletion
+            ELSE: Add this to dom instruciton list
+
+            Return: same as ins_id
+        '''
+        self.add_dom_instruction(ins_id)
 
         return self.tree[self.b_id].append(ins_id)
 
@@ -474,16 +601,12 @@ class CFG:
         return self.tree[self.init_bid].append_const(ins_id)
 
    #  can make it efficient: start bid and end bid
-    def update_xold(self, var, join_bid, xold, xnew):
-        node = [join_bid]
-        visited = {}
+    def update_xold(self, var, join_bid, end_bid, xold, xnew):
+        node = join_bid
 
-        while node:
-            id = node.pop()
-            node = node + self.tree[id].next
-            if id not in visited:
-                visited[id] = True
-                self.tree[id].update_xold(var, xold, xnew)
+        while node <= end_bid:
+            self.tree[node].update_xold(var, xold, xnew)
+            node = node +1
 
 # Todo
     def remove_last_empty_bb(self):
@@ -550,7 +673,15 @@ class CFG:
                 else:
                     bid_list.extend(parent)
             
+    def delete_marked_instruction(self):
+        id = self.init_bid+1
+        while id <= self.b_id:
+            not_deleted_instruction = self.tree[id].delete_marked_instruction()
+            self.tree[id].remove_phi_x_eq_y()
+            for i in not_deleted_instruction:
+                self.add_dom_instruction(i, id)
 
+            id = id + 1
     
 
 relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
@@ -566,18 +697,22 @@ ins_array = {}
 ins_ref_list = {} 
 pseudo_ins = {}
 pc = 0
-neg_pc = -1
+neg_pc = -3
 phi= {}
 phi_i=-1
 current_bid = 0
 cfg_list=[]
-ins_array[neg_pc] = instruction(neg_pc, "const", 4, None)
 
-def instantiate_main_CFG():
+def init_constant():
+    ins_array[CONST_FOUR_ADDR] = instruction(CONST_FOUR_ADDR, "const", 4, None)
+    ins_array[CONST_ZERO_ADDR] = instruction(CONST_ZERO_ADDR, "const", 0, None)
+
+def instantiate_main_CFG(symbol_list:list):
     global cfg, current_bid
     cfg = CFG(current_bid)
+    cfg.init_var(symbol_list)
     cfg.name = "main"
-    cfg.add_const_instruction(neg_pc)
+    cfg_list.append(cfg)
     return cfg
 
 def render_dot(ext=""):
@@ -649,6 +784,7 @@ def add_nop(b_id):
 
         return pc
 
+
 # For if statement
 # Todo: copy dom instructions from dominating block
 def create_join_bb(prev_bb):
@@ -663,23 +799,6 @@ def create_join_bb(prev_bb):
     join_bb.phi_x_operand = True
 
     return join_bb
-
-# remove phi instruction for which operands are equal, x==y
-# Todo: remove other outer block phi that depend's on this phi.
-def remove_phi_x_eq_y(join_bb):
-    inst_table = join_bb.table
-    phi = join_bb.phi
-
-    for var in list(phi.keys()):
-        ins_id  = phi[var]
-        inst = ins_array[ins_id]
-
-        if inst.x == inst.y:
-            # first update variable state
-            join_bb.update_var_wih_name(var, inst.x)
-            join_bb.remove_var_usage(var, ins_id)
-            inst_table.remove(ins_id)
-            del phi[var]
         
 # work with if statement
 '''
@@ -689,28 +808,23 @@ def remove_phi_x_eq_y(join_bb):
 '''
 def add_join_bb(left, right, jump_ins):
     join_bb = top_phi()
-    remove_phi_x_eq_y(join_bb)
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
 
-    # if there is else block, then add bra instruction
+    # Deprecate: if there is else block, then add bra instruction
     # to the if block
     join_bb.add_nop()
-    if right - left > 1 or cfg.tree[right].table:
-        inc_pc()
-        ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
-        cfg.tree[left].table.append(pc)
+    # Depricate
+    # if right - left > 1 or cfg.tree[right].table:
+    inc_pc()
+    ins_array[pc] = instruction(pc, "bra", join_bb.table[0], None)
+    cfg.tree[left].table.append(pc)
 
     cfg.add_join_bb(join_bb, left, "fall-through")
     jump_to = -1
 
-    if cfg.tree[right].table:
-        jump_to = max(cfg.tree[right].table)
-    elif join_bb.table:
-        jump_to = min(join_bb.table)
-    
-    else:   
-        jump_to = add_nop(join_bb.id)
+    cfg.tree[right].add_nop()
+    jump_to = max(cfg.tree[right].table)
 
     ins_array[jump_ins].update_y(jump_to)
     cfg.add_join_bb(join_bb, right, "branch")
@@ -720,6 +834,17 @@ def insert_join_bb_while():
     join_bb = cfg.tree[cfg.b_id]
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
+
+    # kill all the array
+    var_state = join_bb.var_stat
+
+    for var in var_state:
+        if isinstance(var_state[var], dict):
+            var_state[var] = {}
+
+    join_bb.var_state = var_state
+
+    return
 
 def link_up_while(join_bid, jump_ins):
     # No need to add a branch to an empty block
@@ -733,41 +858,44 @@ def link_up_while(join_bid, jump_ins):
     cfg.add_inst_without_cse(pc)
     cfg.add_bb_man(join_bid, get_bid(), "branch")
     ins_array[jump_ins].update_y(pc+1)
-    cfg.tree[cfg.b_id].delete_marked_instruction()
+    # cfg.tree[cfg.b_id].delete_marked_instruction()
     bb = cfg.create_bb()
     bb.var_stat = dict(cfg.tree[join_bid].var_stat)
     cfg.add_bb_man(bb.id, join_bid, "branch")
+    bb.dom_block.append(join_bid)
     pop_phi()
 
     return
 
-def code_get_var_addr(symbol, load_array=True):
-    if symbol.kind == ARRAY:
-        if load_array:
-            return code_array_load(symbol)
-        
-        else:
-            return symbol.get_array_state()
+def code_assignment(lsymbol:symbol_table.symbol_info, rsymbol:symbol_table.symbol_info):
     
-    return symbol.addr
+    # Update lsymbol to initialized
+    lsymbol.initialized = True
+    table = symbol_table.get_symbol_table()
+    table.update(lsymbol.name, lsymbol)
 
-def code_assignment(lsymbol, rsymbol):
     # is there any case where xold is not in the dictionary
     cur_bb = cfg.tree[cfg.b_id]
-    new_addr = code_get_var_addr(rsymbol)
-    old_addr = cur_bb.get_var_pointer(lsymbol.name)
+    new_addr = rsymbol.addr
+    
+    # Create a pseduo instruction for assignment
+    ins  = instruction.create_instruction(ASSIGN_OPCODE, lsymbol.name, new_addr, PSEUDO_INSTRUCTION)
+    cfg.add_inst_without_cse(ins.ins_id)
+    cfg.update_var_usage(rsymbol.name, -ins.ins_id)
 
     # Update the current bb's var state
     if lsymbol.kind == ARRAY:
         code_array_store(lsymbol, new_addr)
-        cur_bb.update_array(lsymbol)
-        
         return lsymbol
 
     # Variable. Update phi funciton
+    # This is a variable so get it's current state from var_state
+    old_addr = cur_bb.get_var_pointer(lsymbol.name)
     lsymbol.addr = new_addr
-    cur_bb.update_var(lsymbol)
+    cur_bb.update_var(lsymbol.name, new_addr)
     update_phi(lsymbol, rsymbol, old_addr, new_addr)
+
+    return lsymbol
 
 def update_phi(lsymbol, rsymbol, xold, xnew):
     if lsymbol.kind != VAR:
@@ -786,14 +914,14 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
             ins_array[pc] = instruction(pc, "phi", xold, xold)
             join_bb.phi[identifier] = pc
             join_bb.append_phi(pc)
-            join_bb.update_var_wih_name(lsymbol.name, pc)
+            join_bb.update_var(lsymbol.name, pc)
 
             # update operand usage for phi instruction
             if rsymbol.kind == VAR:
                 join_bb.update_var_usage(rsymbol.name, -temp)
             # update all uses of xold by phi
             if join_bb.type != IF_JOIN_BLOCK:
-                cfg.update_xold(identifier,join_bb.id, xold, pc)
+                cfg.update_xold(identifier,join_bb.id, cfg.b_id, xold, pc)
 
             join_bb.update_var_usage(lsymbol.name, temp)
         
@@ -806,8 +934,6 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
         
         else:
             ins_array[temp].update_y(xnew)
-
-    
 
         xnew = pc
 
@@ -835,6 +961,7 @@ def code_func_call(name, arg_list):
         code_func_argument(arg_list)
         inc_pc()
         inst = instruction(pc, "jsr", name, None, FUNCTION)
+        inst.type = PSEUDO_INSTRUCTION
         ins_array[pc] = inst
         cfg.add_inst_without_cse(pc)
 
@@ -845,10 +972,14 @@ def code_func_parameter(param_list):
         inc_pc()
         ins_array[pc] = instruction(pc, "par", param.name, None, PSEUDO_INSTRUCTION)
         cfg.add_inst_without_cse(pc)
-        cfg.tree[cfg.b_id].update_var_wih_name(param.name, pc)
+        cfg.tree[cfg.b_id].update_var(param.name, pc)
         # update symbol table
         param.addr = pc
         param.var_type = VAR_PAR
+        table = symbol_table.get_symbol_table()
+        table.update(param.name, param)
+    
+    return
         
     return param_list
 
@@ -890,16 +1021,14 @@ def code_f2(opcode, x, y):
         return x
 
     inc_pc()
-    addr1 = code_get_var_addr(x)
-    addr2 = code_get_var_addr(y)
+    addr1 = x.addr
+    addr2 = y.addr
 
     ins_array[pc] = instruction(pc, opcode, addr1, addr2)
     ins_id = cfg.add_instruction(pc)
 
-    # instruction added, no cse. update new var usage
-    if ins_id == pc:
-        cfg.update_var_usage(x.name, pc)
-        cfg.update_var_usage(y.name, -pc)
+    cfg.update_var_usage(x.name, pc)
+    cfg.update_var_usage(y.name, -pc)
 
     x.addr = ins_id
 
@@ -917,14 +1046,16 @@ def code_relation(resL, resR, relOp):
     # Todo: check whether they are variable or not
     cfg.update_var_usage(resL.name, pc)
     cfg.update_var_usage(resR.name, -pc)
-    addrL = code_get_var_addr(resL)
-    addrR = code_get_var_addr(resR)
+    addrL = resL.addr
+    addrR = resR.addr
     ins_array[pc] = instruction(pc, "cmp", addrL, addrR)
     cfg.add_instruction(pc)
     inc_pc()
     ins = instruction(pc, relOp_fall[relOp], pc-1, "follow")
     ins_array[pc] = ins
-    cfg.add_inst_without_cse(pc)   
+    cfg.add_inst_without_cse(pc) 
+
+
     return pc
 
 def code_array_offset(avar):
@@ -933,10 +1064,14 @@ def code_array_offset(avar):
 
     # multiply 
     for i in range(0, dimension_count-1):
+        stride_addr = code_constant(avar.stride[i])
         inc_pc()
-        ins_array[pc] = instruction(pc, "mul", avar.last_index[i], avar.stride[i]) # Todo: insert array stride into constant
+        ins_array[pc] = instruction(pc, "mul", avar.last_index[i], stride_addr) # Todo: skip multiplying if the index is a constant
         cfg.add_instruction(pc)
         dim_stride.append(pc)
+        # udpate index usage
+        if avar.index_var_name[i].kind == VAR:
+            cfg.update_array_usage(avar.index_var_name[i].name, pc)
 
     dim_stride.append(avar.last_index[-1])
 
@@ -951,8 +1086,11 @@ def code_array_offset(avar):
         prev = pc
 
     inc_pc()
-    ins_array[pc] = instruction(pc, "mul", prev, INT_SIZE_INS)
+    ins_array[pc] = instruction(pc, "mul", prev, CONST_FOUR_ADDR)
     addr1 = cfg.add_instruction(pc)
+    if avar.index_var_name[-1].kind == VAR:
+        cfg.update_var_usage(avar.index_var_name[-1].name, pc)
+
     inc_pc()
     ins_array[pc] = instruction(pc, "addi", BP, avar.base)
     addr2 = cfg.add_instruction(pc)
@@ -967,11 +1105,10 @@ def code_kill(avar):
         join_bb = top_phi()
         inc_pc()
         ins_array[pc] = instruction(pc, "kill", avar.name, None, PSEUDO_INSTRUCTION)
-        join_bb.append(pc)
-        join_bb.update_array(avar)
+        join_bb.append_kill(pc)
+        join_bb.kill_array(avar.name) 
+        #Todo: if it is a while join bb then rewrite the first load
 
-    #Todo: check if array state contain any unknown
-    # index. If yes, then drop. Else, keep it
     avar.state = {}
 
     return
@@ -980,37 +1117,82 @@ def code_array_store(avar, addr):
     code_kill(avar)
     addr1 = code_array_offset(avar)
     inc_pc()
-    avar.update_array_state(addr)# update the array symbol's idx
+    cfg.tree[cfg.b_id].update_array(avar.name, addr, avar.last_index)# update the array symbol's idx
     ins_array[pc] = instruction(pc, "store", addr1, addr)
     cfg.add_inst_without_cse(pc)
 
     return avar
 
 def code_array_load(avar):
+    # always load loop header load.
+    # Never ever try to store this load if 
+    # you don't want to make your life hell
+    if cfg.tree[cfg.b_id].type == WHILE_JOIN_BB:
+        avar.addr = array_load(avar)
+        return avar
+
     # avoid duplicate load
-    ret = avar.get_array_state()
+    # Todo: if there is a kill, always load
+    ret = cfg.tree[cfg.b_id].get_array_state(avar.name, avar.last_index)
 
     if ret is not None:
-        return ret
-        
+            avar.addr = ret
+    else:
+        avar.addr =  array_load(avar)
+        cfg.tree[cfg.b_id].update_array(avar.name, pc, avar.last_index)
+   
+    return avar
+
+def array_load(avar):        
     addr = code_array_offset(avar)
     inc_pc()
     ins_array[pc] = instruction(pc, "load", addr, None)
     cfg.add_inst_without_cse(pc)
-    avar.update_array_state(pc)
-    cfg.tree[cfg.b_id].update_array(avar)
-    table = symbol_table.get_symbol_table()
-    table.update(avar.name, avar)
-
+     
     return pc
 
+def code_get_var_addr(symbol, load_array=True):
+    '''Loads a symbol state from the current BB. In case of an array, 
+        insert the instructions to load it.
+    '''
+    if symbol.kind == ARRAY:
+        symbol = code_array_load(symbol)
+
+    elif symbol.kind== VAR:
+        symbol.addr = cfg.get_var_pointer(symbol.name)
+
+        # Constant
+        if symbol.addr < 0:
+            symbol.val = ins_array[symbol.addr].x
+
+    else:
+        print("Undefine use of a symbol")
+        SystemExit(0)
+        
+    return symbol
+
 def code_return(symbol):
-    addr = code_get_var_addr(symbol)
+    addr = symbol.addr
     inc_pc()
     ins_array[pc] = instruction(pc, "ret", addr, None)
     cfg.add_inst_without_cse(pc)
 
+def code_return_val(addr):
+    inc_pc()
+    ins_array[pc] = instruction(pc, "retval", addr, None)
+    ins_array[pc].type = PSEUDO_INSTRUCTION
+    cfg.add_inst_without_cse(pc)
+
+    return pc
+
 def code_end():
+    cse()
     inc_pc()
     ins_array[pc] = instruction(pc, "end", None, None)
     cfg.add_inst_without_cse(pc)
+
+def cse():
+    if CSE:
+        cfg.delete_marked_instruction()
+        #second pass
+        cfg.delete_marked_instruction()

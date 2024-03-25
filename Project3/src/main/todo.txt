@@ -1,7 +1,7 @@
 Critical:
-    1. while.smpl
-    2. Function Return
-    3. draw cfg properly
+    1. complex_while_array
+    2. reduntdant array load 
+    2. array index  change inside loop
 
 1. Meaningful error message 
 2. Remove block with single branch
