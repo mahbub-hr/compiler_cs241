@@ -96,7 +96,10 @@ class reg_instruction:
 
         # 2 register instruciton
         elif ins.opcode=="cmp":
-            if ins.x < 0:
+            if ins.x < 0 and ins.y < 0:
+                reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.y].x}, {ins_array[ins.x].x}"
+
+            elif ins.x < 0:
                 reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.y]}, {ins_array[ins.x].x}"
             
             elif ins.y < 0:

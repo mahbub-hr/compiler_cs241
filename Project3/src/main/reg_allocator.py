@@ -245,6 +245,10 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
 
     while i <= last_phi_idx:
         phi_ins = code_generator.ins_array[bb.table[i]]
+        if phi_ins.opcode != "phi":
+            i = i+1
+            continue
+
         if bb.type == Constant.IF_JOIN_BLOCK:
             b_parent = parent_bb[0]
             f_parent = parent_bb[1]
