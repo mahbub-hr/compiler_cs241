@@ -1165,8 +1165,10 @@ def code_get_var_addr(symbol, load_array=True):
         symbol.addr = cfg.get_var_pointer(symbol.name)
 
         # Constant
-        if symbol.addr < 0:
-            symbol.val = ins_array[symbol.addr].x
+        # Todo: Problem with 1.while 
+        # a <- a+a
+        # if symbol.addr < 0:
+        #     symbol.val = ins_array[symbol.addr].x
 
     else:
         print("Undefine use of a symbol")

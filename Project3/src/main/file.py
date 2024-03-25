@@ -7,9 +7,9 @@ def get_file_name_without_extension():
     return filename
 
 def get_test_folder_name():
-    return "community"
+    return "standard"
 
-def run_single_test(filename_="3.no_phi_for_cse"):
+def run_single_test(filename_="6.nested_while"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")
