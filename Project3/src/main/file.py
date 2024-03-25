@@ -9,7 +9,7 @@ def get_file_name_without_extension():
 def get_test_folder_name():
     return "standard"
 
-def run_single_test(filename_="6.nested_while"):
+def run_single_test(filename_="5.while_nested_if_array"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")

@@ -255,7 +255,8 @@ class BB:
                     not_deleted_ins.append(i)
 
             for i in not_deleted_ins:
-                marked_for_deleted.remove(i)
+                if i in marked_for_deleted:
+                    marked_for_deleted.remove(i)
 
         return not_deleted_ins
 

@@ -3,7 +3,7 @@ Critical:
     2. reduntdant array load 
     2. array index  change inside loop
 
-1. Meaningful error message 
+1. Not in a while, remove write away. 
 2. Remove block with single branch
 3. Remove empty while block
 4. Instruction Scheduling
