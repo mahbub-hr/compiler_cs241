@@ -7,17 +7,23 @@ def get_file_name_without_extension():
     return filename
 
 def get_test_folder_name():
-    return "standard"
+    return "community"
 
-def run_test():
+def run_single_test(filename_="12.while_array"):
+    global filename 
+    filename = filename_
+    print(f"File:: {filename} =====> starting ... \n")
+    sentence = read()
+    _tokenizer = tokenizer.Tokenizer(sentence)
+    parser.init(_tokenizer)
+    print(f"File:: {filename} =====> Done\n")
+
+
+def run_tests():
     global filename
     for file in os.listdir(get_test_folder_path()):
         filename,ext = os.path.splitext(file)
-        print(f"File:: {filename} =====> starting ... \n")
-        sentence = read()
-        _tokenizer = tokenizer.Tokenizer(sentence)
-        parser.init(_tokenizer)
-        print(f"File:: {filename} =====> Done\n")
+        run_single_test(filename)
 
 def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)

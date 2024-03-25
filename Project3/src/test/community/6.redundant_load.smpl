@@ -2,7 +2,7 @@ main
 array[10] a,b;
 var i, j, k;
 {
-    let i <- 8;
+    let i <- call InputNum();
     let j <- call InputNum();
     let k <- i + 1;
 

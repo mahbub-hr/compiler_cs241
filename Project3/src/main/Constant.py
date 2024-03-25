@@ -74,6 +74,7 @@ token_name = {
 # Code Generator
 # opcode
 BP = "bp"
+ASSIGN_OPCODE = "assign"
 CONST_ZERO_ADDR = -1
 CONST_FOUR_ADDR = -2
 IF_JOIN_BB_ID = -1 # Replace this
@@ -131,4 +132,5 @@ VIR_REG_END = 100
 NO_PHY_REG_AVAILABLE = -1
 NO_VIR_REG_AVAILABLE = -1
 # Machine Config
-NO_OF_GPR = 5 
+NO_OF_GPR = 5
+BP_REG = 30

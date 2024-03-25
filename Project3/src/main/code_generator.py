@@ -46,6 +46,13 @@ class instruction:
         x = '('+ str(self.x) + ')' if self.x is not None else ""
         y = '('+ str(self.y) + ')' if self.y is not None else ""
         return f"{self.ins_id}: {self.opcode} {x} {y}"
+    
+    def create_instruction(opcode, x, y, type_ = INSTRUCTION):
+        inc_pc()
+        ins = instruction(pc, opcode, x, y, type_)
+        ins_array[pc] = ins
+
+        return ins
             
 def dict_str(d, indent):
     result = ""
@@ -93,84 +100,27 @@ class BB:
             return False
         
         return True
-
-    def add_dom_instruction(self, opcode, ins_id):
-        opcode_to_excl = ['read', 'phi', 'bra']
-
-        if opcode in opcode_to_excl:
-            return None
-
-        if opcode not in self.dom_instruction:
-            self.dom_instruction[opcode] = []
-
-        self.dom_instruction[opcode].append(ins_id)
-
-
-    def find_dom_instruction(self, instruction):
-        '''Return the equivalent dominating instruction id'''
-
-        if instruction.opcode not in self.dom_instruction:
-            return None
-
-        ins_list = self.dom_instruction[instruction.opcode]
-
-        for i in range(len(ins_list)-1, -1, -1):
-            if ins_array[ins_list[i]] == instruction:
-                return ins_list[i]
-            
-        return None
     
-    def delete_marked_instruction(self):
-        for ins in self.marked_for_deleted:
-            # these instructions will be deleted
-            marked_for_deleted = self.marked_for_deleted[ins]
-            for i in marked_for_deleted:
-                # operands might change, recheck for equivalence again
-                if ins_array[ins] == ins_array[i]:
-                    self.update_var_with_new_ins(i, ins)
-                    self.table.remove(i)
-                    if i in ins_ref_list:
-                        usage = ins_ref_list[i]
-                        for u in usage:
-                            if ins_array[u].x == i:
-                                ins_array[u].update_x(ins)
-                            if ins_array[u].y == i:
-                                ins_array[u].update_y(ins)
-           
-    '''Update var_stat with new instruction id'''
-    def update_var_with_new_ins(self, prev_id, new_id):
-        for var in self.var_stat:
-            if prev_id == self.var_stat[var]:
-               self.update_var(var, new_id)
-            #    var_usage = self.var_usage[var]
-
-            # array index update 
-            elif isinstance(self.var_stat[var], dict):
-                # considering only 1D array
-                index = self.var_stat[var].keys()
-
-                for idx in index:
-                    if idx == prev_id:
-                        # first copy to the new index
-                        self.var_stat[var][new_id] = self.var_stat[var][prev_id]
-                        del self.var_stat[var][prev_id]
-                        # no more match because its a dictionary
-                        break
-        return
+    def set_ins_bid(self, ins_id):
+        ins_array[ins_id].bid = self.id
 
     def append(self, ins_id):
+        self.set_ins_bid(ins_id)
         self.table.append(ins_id)
 
         return ins_id
     
     def append_phi(self, ins_id):
+        self.set_ins_bid(ins_id)
         self.phi_idx = self.phi_idx + 1
         self.table.insert(self.phi_idx, ins_id)
 
     def append_kill(self, ins_id):
+        self.set_ins_bid(ins_id)
         self.table.insert(0, ins_id)
 
     def append_const(self, ins_id):
+        self.set_ins_bid(ins_id)
         for i in self.table:
             if ins_array[i].x == ins_array[ins_id].x:
                 inc_negpc()
@@ -180,6 +130,7 @@ class BB:
         return ins_id
     
     def append_inst_without_cse(self, ins_id):
+        self.set_ins_bid(ins_id)
         self.table.append(ins_id)
         return ins_id
 
@@ -248,12 +199,117 @@ class BB:
     def get_parent(self):
         return self.prev
 
-    # def get_parent_with_larger_bid(self):
-    #     return self.prev[:-1]
+    def add_dom_instruction(self, opcode, ins_id):
+        opcode_to_excl = ['read', 'phi', 'bra']
 
-    # def get_parent_with_smaller_bid(self):
-    #     return self.prev[0]
+        if opcode in opcode_to_excl:
+            return None
 
+        if opcode not in self.dom_instruction:
+            self.dom_instruction[opcode] = []
+
+        self.dom_instruction[opcode].append(ins_id)
+
+
+    def find_dom_instruction(self, instruction):
+        '''Return the equivalent dominating instruction id'''
+
+        if instruction.opcode not in self.dom_instruction:
+            return None
+
+        ins_list = self.dom_instruction[instruction.opcode]
+
+        for i in range(len(ins_list)-1, -1, -1):
+            if ins_array[ins_list[i]] == instruction:
+                return ins_list[i]
+            
+        return None
+    
+    def add_to_marked_for_deleted(self, dom_ins_id, ins_id):
+        if dom_ins_id in self.marked_for_deleted:
+            self.marked_for_deleted[dom_ins_id].append(ins_id)
+            
+        else: 
+            self.marked_for_deleted[dom_ins_id] = [ins_id]
+
+        return
+
+    def delete_marked_instruction(self):
+        not_deleted_ins = []
+        for dom_ins in self.marked_for_deleted:
+            # these instructions will be deleted
+            marked_for_deleted = self.marked_for_deleted[dom_ins]
+            for i in marked_for_deleted:
+                # already been deleted in the previous pass
+                if i not in self.table:
+                    continue
+
+                # operands might change, recheck for equivalence again
+                if ins_array[dom_ins] == ins_array[i]:
+                    self.update_var_with_new_ins(i, dom_ins)
+                    self.update_instruction_reference(i, dom_ins)
+                    self.table.remove(i)
+                    # self.dom_instruction[ins_array[i].opcode].remove(i)
+                # remove from the marked for deleted
+                else:
+                    not_deleted_ins.append(i)
+
+            for i in not_deleted_ins:
+                marked_for_deleted.remove(i)
+
+        return not_deleted_ins
+
+    def update_instruction_reference(self, prev_id, new_id):
+        if prev_id in ins_ref_list:
+            usage = ins_ref_list[prev_id]
+            for u in usage:
+                if ins_array[u].x == prev_id:
+                    ins_array[u].update_x(new_id)
+                if ins_array[u].y == prev_id:
+                    ins_array[u].update_y(new_id)
+        
+        return
+
+    '''Update var_stat with new instruction id'''
+    def update_var_with_new_ins(self, prev_id, new_id):
+        for var in self.var_stat:
+            if prev_id == self.var_stat[var]:
+               self.update_var(var, new_id)
+            #    var_usage = self.var_usage[var]
+
+            # array index update 
+            elif isinstance(self.var_stat[var], dict):
+                # considering only 1D array
+                index = self.var_stat[var].keys()
+
+                for idx in index:
+                    if idx == prev_id:
+                        # first copy to the new index
+                        self.var_stat[var][new_id] = self.var_stat[var][prev_id]
+                        del self.var_stat[var][prev_id]
+                        # no more match because its a dictionary
+                        break
+        return
+
+    # remove phi instruction for which operands are equal, x==y
+    # Todo: remove other outer block phi that depend's on this phi.
+    def remove_phi_x_eq_y(self):
+        if not self.phi:
+            return
+
+        inst_table = self.table
+        phi = self.phi
+
+        for var in list(phi.keys()):
+            ins_id  = phi[var]
+            inst = ins_array[ins_id]
+
+            if inst.x == inst.y:
+                # first update variable state
+                self.add_to_marked_for_deleted(inst.x, ins_id)
+
+        return
+    
     def add_live_var_set(self, prev_live_var_set):
         if self.prev_live_var_set:
             self.prev_live_var_set = self.prev_live_var_set.union(prev_live_var_set)
@@ -278,8 +334,9 @@ class BB:
         return y_operand_set
             
     def live_variable_analysis(self, cfg):
-        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr", "addi"}
-        skip_opcode = {"write", "cmp", "end", "nop"}.union(skip_adding_jmp_operand)
+        skip_adding_jmp_operand = {"bne", "bra", "beq", "ble", "blt", "bge", "bgt", "jsr"}
+        skip_opcode = {"write", "store", "cmp", "end", "nop","kill", ASSIGN_OPCODE}.union(skip_adding_jmp_operand)
+        skip_adding_operand = {"addi", "par", "retval", ASSIGN_OPCODE, "kill", "addi"}.union(skip_adding_jmp_operand)
         live_var_set = self.prev_live_var_set
         
         for i in reversed(self.table):
@@ -290,8 +347,8 @@ class BB:
             if opcode not in skip_opcode:
                  self.live_var_set[i] = set(live_var_set)
 
-            # Pseduo Instr like "par c retval x"
-            if ins_array[i].type == PSEUDO_INSTRUCTION:
+            # Pseduo Instr like "par c retval x assign(c)(4)"
+            if opcode in skip_adding_operand:
                 continue
             
             if ins_array[i].x is not None and  ins_array[i].x>0:# >0 means not a constant
@@ -327,6 +384,8 @@ class BB:
             # right opperand
             if i < 0 and ins_array[-i].y == xold:
                 ins_array[-i].y = xnew
+                if ins_array[-i].opcode == ASSIGN_OPCODE:
+                    self.update_var(ins_array[-i].x, xnew)
 
         return
                 
@@ -489,8 +548,10 @@ class CFG:
     def get_var_pointer(self, var):
         return self.tree[self.b_id].get_var_pointer(var)
     
-    def find_dom_instruction(self, instruction):
-        bid = self.b_id
+    def find_dom_instruction(self, instruction, bid=None):
+        if bid is None:
+            bid = self.b_id
+
         while bid is not None and bid > self.init_bid:
             bb = self.tree[bid]
             ins_id = bb.find_dom_instruction(instruction)
@@ -503,6 +564,21 @@ class CFG:
         # finished searching up to top-most dominator
         return None
 
+    def add_dom_instruction(self, ins_id, bid = None):
+        if bid is None:
+            bid = self.b_id
+
+        instruction = ins_array[ins_id]
+        dom_ins_id = self.find_dom_instruction(instruction, bid)
+
+        if dom_ins_id:
+            self.tree[bid].add_to_marked_for_deleted(dom_ins_id, ins_id)
+
+        else:
+            self.tree[bid].add_dom_instruction(instruction.opcode, ins_id)
+
+        return dom_ins_id
+
     def add_instruction(self, ins_id):
         '''
             IF: Find the dom instruction that is CS
@@ -511,20 +587,7 @@ class CFG:
 
             Return: same as ins_id
         '''
-        instruction = ins_array[ins_id]
-        dom_ins_id = self.find_dom_instruction(instruction)
-
-        if dom_ins_id:
-            
-            marked_for_deleted =  self.tree[self.b_id].marked_for_deleted
-            if dom_ins_id in marked_for_deleted:
-                marked_for_deleted[dom_ins_id].append(ins_id)
-            
-            else: 
-                marked_for_deleted[dom_ins_id] = [ins_id]
-        
-        else:
-            self.tree[self.b_id].add_dom_instruction(instruction.opcode, ins_id)
+        self.add_dom_instruction(ins_id)
 
         return self.tree[self.b_id].append(ins_id)
 
@@ -611,9 +674,13 @@ class CFG:
                     bid_list.extend(parent)
             
     def delete_marked_instruction(self):
-        id = self.init_bid
+        id = self.init_bid+1
         while id <= self.b_id:
-            self.tree[id].delete_marked_instruction()
+            not_deleted_instruction = self.tree[id].delete_marked_instruction()
+            self.tree[id].remove_phi_x_eq_y()
+            for i in not_deleted_instruction:
+                self.add_dom_instruction(i, id)
+
             id = id + 1
     
 
@@ -717,8 +784,6 @@ def add_nop(b_id):
 
         return pc
 
-def update_var_usage(symbol, ins_id):
-    cfg.update_var_usage(symbol.name, ins_id)
 
 # For if statement
 # Todo: copy dom instructions from dominating block
@@ -734,23 +799,6 @@ def create_join_bb(prev_bb):
     join_bb.phi_x_operand = True
 
     return join_bb
-
-# remove phi instruction for which operands are equal, x==y
-# Todo: remove other outer block phi that depend's on this phi.
-def remove_phi_x_eq_y(join_bb):
-    inst_table = join_bb.table
-    phi = join_bb.phi
-
-    for var in list(phi.keys()):
-        ins_id  = phi[var]
-        inst = ins_array[ins_id]
-
-        if inst.x == inst.y:
-            # first update variable state
-            join_bb.update_var_wih_name(var, inst.x)
-            join_bb.remove_var_usage(var, ins_id)
-            inst_table.remove(ins_id)
-            del phi[var]
         
 # work with if statement
 '''
@@ -760,7 +808,6 @@ def remove_phi_x_eq_y(join_bb):
 '''
 def add_join_bb(left, right, jump_ins):
     join_bb = top_phi()
-    remove_phi_x_eq_y(join_bb)
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
 
@@ -815,11 +862,13 @@ def link_up_while(join_bid, jump_ins):
     bb = cfg.create_bb()
     bb.var_stat = dict(cfg.tree[join_bid].var_stat)
     cfg.add_bb_man(bb.id, join_bid, "branch")
+    bb.dom_block.append(join_bid)
     pop_phi()
 
     return
 
 def code_assignment(lsymbol:symbol_table.symbol_info, rsymbol:symbol_table.symbol_info):
+    
     # Update lsymbol to initialized
     lsymbol.initialized = True
     table = symbol_table.get_symbol_table()
@@ -828,6 +877,11 @@ def code_assignment(lsymbol:symbol_table.symbol_info, rsymbol:symbol_table.symbo
     # is there any case where xold is not in the dictionary
     cur_bb = cfg.tree[cfg.b_id]
     new_addr = rsymbol.addr
+    
+    # Create a pseduo instruction for assignment
+    ins  = instruction.create_instruction(ASSIGN_OPCODE, lsymbol.name, new_addr, PSEUDO_INSTRUCTION)
+    cfg.add_inst_without_cse(ins.ins_id)
+    cfg.update_var_usage(rsymbol.name, -ins.ins_id)
 
     # Update the current bb's var state
     if lsymbol.kind == ARRAY:
@@ -973,8 +1027,8 @@ def code_f2(opcode, x, y):
     ins_array[pc] = instruction(pc, opcode, addr1, addr2)
     ins_id = cfg.add_instruction(pc)
 
-    update_var_usage(x, pc)
-    update_var_usage(y, -pc)
+    cfg.update_var_usage(x.name, pc)
+    cfg.update_var_usage(y.name, -pc)
 
     x.addr = ins_id
 
@@ -990,8 +1044,8 @@ def code_else(prev_bb):
 def code_relation(resL, resR, relOp):
     inc_pc()
     # Todo: check whether they are variable or not
-    update_var_usage(resL, pc)
-    update_var_usage(resR, -pc)
+    cfg.update_var_usage(resL.name, pc)
+    cfg.update_var_usage(resR.name, -pc)
     addrL = resL.addr
     addrR = resR.addr
     ins_array[pc] = instruction(pc, "cmp", addrL, addrR)
@@ -1107,6 +1161,10 @@ def code_get_var_addr(symbol, load_array=True):
     elif symbol.kind== VAR:
         symbol.addr = cfg.get_var_pointer(symbol.name)
 
+        # Constant
+        if symbol.addr < 0:
+            symbol.val = ins_array[symbol.addr].x
+
     else:
         print("Undefine use of a symbol")
         SystemExit(0)
@@ -1135,4 +1193,6 @@ def code_end():
 
 def cse():
     if CSE:
+        cfg.delete_marked_instruction()
+        #second pass
         cfg.delete_marked_instruction()

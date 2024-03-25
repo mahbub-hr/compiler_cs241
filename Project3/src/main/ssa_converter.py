@@ -25,13 +25,17 @@ class reg_instruction:
             return reg_ins
 
         reg_ins = reg_instruction()
-        reg_ins.opcode = reg_instruction.opcode(ins)
+
         # end
-        if ins.opcode == "end":
-            reg_ins.string = f"{reg_ins.opcode}"
+        if ins.opcode in ["end", "nop"]:
+            reg_ins.string = ins.opcode
             return reg_ins
 
-        if ins.opcode == "jsr":
+        if ins.opcode == "writeNL":
+            reg_ins.string = "writeNL"
+            return reg_ins
+
+        if ins.opcode in ["jsr", "kill"]:
             reg_ins.string = f"{ins.opcode} {ins.x}"
             return reg_ins
         
@@ -50,6 +54,12 @@ class reg_instruction:
         if ins.opcode == "retval":
             reg_ins = reg_instruction.create_move_ins(register_allocation[ins.ins_id], 31)
             return reg_ins
+        
+        if ins.opcode == Constant.ASSIGN_OPCODE:
+            reg_ins.string = str(ins)
+            return reg_ins
+
+        reg_ins.opcode = reg_instruction.opcode(ins)
         # 1 reg ins
         if ins.opcode in ["read", "par"]:
             reg_ins.string= f"{reg_ins.opcode} R{register_allocation[ins.ins_id]}"
@@ -65,18 +75,23 @@ class reg_instruction:
                 return reg_ins
 
         if ins.opcode == "write":
-            reg_ins.r1 = register_allocation[ins.x]
-            reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}"
+            op = 0
+            if ins.x < 0:
+                reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.x].x}"
+            
+            else:
+                reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.x]}"
+ 
             return reg_ins
 
         elif ins.opcode in Constant.BRACH_OPCODE:
             # bra(7)
             if ins.y is None:
-                reg_ins.r1 = register_allocation[ins.x]
+                reg_ins.r1 = ins.x
             else:
-                reg_ins.r1 = register_allocation[ins.y]
+                reg_ins.r1 = ins.y
 
-            reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}"
+            reg_ins.string = f"{reg_ins.opcode} {reg_ins.r1}"
             return reg_ins
 
         # 2 register instruciton
@@ -92,28 +107,47 @@ class reg_instruction:
 
             return reg_ins
 
+        # only for addi bp a_base
+        elif ins.opcode=="addi":
+            reg_ins.string = f"{ins.opcode} R{Constant.BP_REG} R{ins.y}"
+            return reg_ins
+
+        elif ins.opcode == "store":
+            op = 0
+            if ins.y<0:
+                op = ins_array[ins.y].x
+
+            else:
+                op = ins.y
+
+            reg_ins.string = f"{ins.opcode} Mem[R{register_allocation[ins.x]}], R{op}"
+            return reg_ins
+
+        elif ins.opcode == "load":
+            reg_ins.string = f"{ins.opcode} R{register_allocation[ins.ins_id]}, Mem[R{register_allocation[ins.x]}]"
+            return reg_ins
+
         # 3 regiter instruction
         reg_ins.r1 = register_allocation[ins.ins_id]
         
         # load Constant value
-        if ins.x is not None:
-            if ins.x is not None and ins.x < 0:
-                reg_ins.val = ins_array[ins.x].x 
-            
-            else:
-                reg_ins.r2 = register_allocation[ins.x]
+        if ins.x is not None and ins.x < 0:
+            reg_ins.r3 = ins_array[ins.x].x 
 
-        if ins.y is not None:
-            if ins.y < 0:    
-                reg_ins.val = ins_array[ins.y].x
+        elif ins.y is not None and ins.y < 0:    
+            reg_ins.r3 = ins_array[ins.y].x
             
-            else:
-                reg_ins.r2 = register_allocation[ins.y]
+        else:
+            reg_ins.r2 = register_allocation[ins.x]
+            reg_ins.r3 = "R" + str(register_allocation[ins.y])
             
-        reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}, R{reg_ins.r2}, R{reg_ins.r3}"
+        reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}, R{reg_ins.r2}, {reg_ins.r3}"
         return reg_ins
 
     def opcode(ins):
+        if "i" in ins.opcode:
+            return ins.opcode
+
         if ins.x is not None and ins.y is not None and  (ins.x <0 or ins.y < 0):
             return ins.opcode+"i"
         
