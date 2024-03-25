@@ -306,8 +306,11 @@ class BB:
 
             if inst.x == inst.y:
                 # first update variable state
-                self.add_to_marked_for_deleted(inst.x, ins_id)
-
+                # self.add_to_marked_for_deleted(inst.x, ins_id)
+                self.update_var_with_new_ins(inst.ins_id, inst.x)
+                self.update_instruction_reference(inst.ins_id, inst.x)
+                self.table.remove(inst.ins_id)
+                del self.phi[var]
         return
     
     def add_live_var_set(self, prev_live_var_set):

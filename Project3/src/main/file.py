@@ -9,7 +9,7 @@ def get_file_name_without_extension():
 def get_test_folder_name():
     return "community"
 
-def run_single_test(filename_="14.sequential_ifs"):
+def run_single_test(filename_="3.no_phi_for_cse"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")
