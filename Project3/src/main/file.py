@@ -7,9 +7,9 @@ def get_file_name_without_extension():
     return filename
 
 def get_test_folder_name():
-    return "community"
+    return "presentation"
 
-def run_single_test(filename_="6.redundant_load"):
+def run_single_test(filename_="3.array"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")
