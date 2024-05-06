@@ -17,8 +17,8 @@
             "name": "Python: Test",
             "type": "python",
             "request": "launch",
-            "program": "RunTests.py",
-            "cwd": "${workspaceFolder}/src/test",
+            "program": "test/RunTest.py",
+            "cwd": "${workspaceFolder}/src",
             "console": "integratedTerminal",
             "justMyCode": true
         },

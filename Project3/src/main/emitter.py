@@ -1,4 +1,4 @@
-class WASM:
+class Emitter:
     WASM_BINARY_MAGIC = bytearray(b'\x00\61\x73\x6d')
     WASM_BINARY_VERSION = bytearray(b'\x01\x00\x00\x00')
 
@@ -6,11 +6,14 @@ class WASM:
         self.buffer = bytearray()
         return
 
-    def wasm_header(self):
+    def header(self):
         self.buffer = self.WASM_BINARY_MAGIC+self.WASM_BINARY_VERSION
 
 
     def print_buffer(self):
-        print(self.buffer)
+        # Print 4 bytes per line with index
+        for i in range(0, len(self.buffer), 4):
+            print(f"{i:04d}: {self.buffer[i:i+4]}")
+
         return
     
