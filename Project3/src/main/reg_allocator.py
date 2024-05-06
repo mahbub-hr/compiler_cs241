@@ -259,7 +259,7 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
         else:
             f_parent = parent_bb[0]
             b_parent = parent_bb[1]
-            reg_instruction.conver_WHILE_phi_instruction(phi_ins, b_parent, f_parent, register_allocation)
+            reg_instruction.convert_WHILE_phi_instruction(phi_ins, b_parent, f_parent, register_allocation)
 
         i = i + 1
 

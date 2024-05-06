@@ -201,7 +201,7 @@ class reg_instruction:
         
         return
 
-    def conver_WHILE_phi_instruction(ins, b_parent, f_parent, register_allocation):
+    def convert_WHILE_phi_instruction(ins, b_parent, f_parent, register_allocation):
         f_op =-1
         f_ssa = ins.x
 
