@@ -426,7 +426,7 @@ class BB:
         str_ = ""
    
         for i in self.next:
-           str_ = str_ + f'bb{self.id}:s->bb{i}:n[label={'"'+self.e_label.get(i, None)+'"'}];\n'
+           str_ = str_ + f'bb{self.id}:s->bb{i}:n[label=\"{self.e_label.get(i, None)}\"];\n'
 
         for i in self.func_call:
             str_ = str_ + f'bb{self.id}->bb{i}[label="function-call"];\n'
