@@ -7,7 +7,7 @@ class Emitter:
         return
 
     def header(self):
-        self.buffer = self.WASM_BINARY_MAGIC+self.WASM_BINARY_VERSION
+        return self.WASM_BINARY_MAGIC+self.WASM_BINARY_VERSION
 
 
     def print_buffer(self):
