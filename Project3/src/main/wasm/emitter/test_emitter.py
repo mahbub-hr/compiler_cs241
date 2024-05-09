@@ -17,7 +17,7 @@ class TestEmitter(unittest.TestCase):
 
     def test_add_function_type(self):
         buffer = bytearray([0x60, 0,  1, NumberTypes.i32.value])
-        buffer1 = self.emitter.add_function_type([], [NumberTypes.i32.value])
+        buffer1 = self.emitter.add_function_type([NumberTypes.i32.value, NumberTypes.i64.value], [NumberTypes.i32.value])
 
         self.assertEqual(buffer, buffer1)
 

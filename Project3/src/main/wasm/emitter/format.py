@@ -14,15 +14,28 @@ class Section(Enum):
   _code = 10
   _data = 11
 
+
+class SectionFormat(Enum):
+  id = 0
+  size = 1
+  number_of_entry = 2
+  cont_start = 3
+
 class NumberTypes(Enum):
   i32 = 0x7F
   i64 = 0x7E
   f32 = 0x7D
   f64 = 0x7C
 
+class ExportKind(Enum):
+  func = 0x00
+  table = 0x01
+  mem = 0x02
+  _global = 0x03
+
 class VectorType(Enum):
   vectype = 0x7B
-  
+
 class Opcodes(Enum):
   block = 0x02,
   loop = 0x03,
