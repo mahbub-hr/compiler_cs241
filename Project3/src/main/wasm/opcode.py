@@ -1,6 +1,6 @@
 from enum import Enum
 
-class NumericInstruciton(Enum):
+class Opcodes(Enum):
     i32_const = 0x41
     i64_const = 0x42
     f32_const = 0x43
