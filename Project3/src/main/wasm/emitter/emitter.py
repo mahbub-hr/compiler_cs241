@@ -16,12 +16,13 @@ class Section:
     def encode(self):
         '''Add two bytes: section_id and section size --> 0'''
         buffer = bytearray([self.num_of_entry])+self.buffer
+        size = len(buffer)
         buffer = bytearray([self.id, len(buffer)]) + buffer
         
         return buffer
 
 class Emitter:
-    WASM_BINARY_MAGIC = bytearray(b'\x00\61\x73\x6d')
+    WASM_BINARY_MAGIC = bytearray(b'\x00\x61\x73\x6d')
     WASM_BINARY_VERSION = bytearray(b'\x01\x00\x00\x00')
 
     def __init__(self):
@@ -48,12 +49,16 @@ class Emitter:
     #     self.func_section = self.encode_section(Section._func.value)
     #     return self.func_section
 
-    # def init_exp_section(self):
-    #     self.exp_section = self.encode_section(Section._export.value)
-    #     return self.exp_section
+    def init_export_section(self):
+        """Always export a default main function"""
+        self.add_export("main", ExportKind.func.value, 1) # todo : find the actual index to export
 
-    def init_imprt_section(self):
+        return self.export_section
+
+    def init_import_section(self):
         self.add_import("console", "log", ExportKind.func.value)
+        self.add_function_type([Types.i32.value], [])
+
         return self.import_section
 
     # def init_code_section(self):
@@ -85,13 +90,13 @@ class Emitter:
         return buffer
 
     def add_func(self):
-        buffer = bytearray(self.function_section.num_of_entry)
-        self.func_section.add_entry(buffer)
+        buffer = bytearray([self.type_section.num_of_entry-1])
+        self.function_section.add_entry(buffer)
 
         return buffer
 
     def add_export(self, exp_name, exp_kind, func_idx=0):
-        buffer = bytearray([len(exp_name), exp_name, exp_kind, func_idx])
+        buffer = bytearray([len(exp_name)])+  exp_name.encode("utf-8") + bytearray([exp_kind, func_idx])
         self.export_section.add_entry(buffer)
         return buffer
         
