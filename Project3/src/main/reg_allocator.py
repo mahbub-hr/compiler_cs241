@@ -152,6 +152,20 @@ class Graph:
 
         return self.dot_str
 
+def allocate_register(cfg_list):
+    reg_allocator = register_allocator.get_reg_allocator()
+
+    for cfg in cfg_list:
+        interference_graph = cfg.interference_graph
+        interference_graph.color_graph(reg_allocator)
+
+    render_dot(cfg_list)
+
+    # for cfg in cfg_list:
+    #     convert_to_reg_instruction(cfg)
+
+    # code_generator.render_dot("reg")
+
 def panic():
     Constant.info("**Resource Exhausted\n")
     sys.exit(-1)
@@ -202,20 +216,6 @@ def live_variable_analysis(cfg_list):
         cfg.live_variable_analysis()
 
     build_interference_graph_cfg_list(cfg_list)
-
-def allocate_register(cfg_list):
-    reg_allocator = register_allocator.get_reg_allocator()
-
-    for cfg in cfg_list:
-        interference_graph = cfg.interference_graph
-        interference_graph.color_graph(reg_allocator)
-
-    render_dot(cfg_list)
-
-    for cfg in cfg_list:
-        convert_to_reg_instruction(cfg)
-
-    code_generator.render_dot("reg")
 
 # def coalesce_live_range(cfg_list):
 #     for cfg in cfg_list:

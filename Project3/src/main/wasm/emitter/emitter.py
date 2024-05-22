@@ -51,7 +51,7 @@ class Emitter:
 
     def init_export_section(self):
         """Always export a default main function"""
-        self.add_export("main", ExportKind.func.value, 1) # todo : find the actual index to export
+        self.add_export("main", ExportKind.func.value, self.type_section.num_of_entry)
 
         return self.export_section
 

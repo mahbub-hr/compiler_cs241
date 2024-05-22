@@ -28,7 +28,7 @@ class symbol_info:
 
         return func
     
-    def var_symbol(name, val = None, addr = None, kind = VAR, initialized=False):
+    def var_symbol(name, val = None, addr = None, kind = VAR, initialized=False, wasm_index=0):
         var = symbol_info()
         var.name = name
         var.val = val
@@ -36,6 +36,7 @@ class symbol_info:
         var.kind = kind
         var.line_count = tokenizer.line_count
         var.initialized = initialized
+        var.wasm_index = wasm_index
         return var
     
     def array_symbol(name, size:list = None, kind = ARRAY, initialized=False):
