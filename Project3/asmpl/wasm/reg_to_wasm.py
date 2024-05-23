@@ -5,7 +5,7 @@ import code_generator
 import Constant
 
 class WasmFunc:
-    def __init__(self, name, index=0):
+    def __init__(self, index=0):
         self.index = index
         self.local_type = {}
         self.param =[]
@@ -55,7 +55,7 @@ class RegToStackMachineCode:
         return
 
     def push_constant(self, const):
-        self.cur_function.add_instruction(bytearray([Opcodes.i32_const, const]))
+        self.cur_function.add_instruction(bytearray([Opcodes.i32_const.value, const]))
     
     def push_variable(self, reg_no):
         if(var_idx < Constant.NO_OF_GPR):
@@ -63,7 +63,7 @@ class RegToStackMachineCode:
             return
 
         var_idx = self.create_wasm_variable(reg_no)
-        self.cur_function.add_instruction(bytearray([Opcodes.get_local, var_idx]))
+        self.cur_function.add_instruction(bytearray([Opcodes.get_local.value, var_idx]))
     
     def create_wasm_variable(self, reg_no):
         if reg_no in self.reg_to_var:

@@ -1,5 +1,5 @@
 
-from main.format import SectionID, Opcodes, SectionFormat, Types, ExportKind
+from wasm.format import SectionID, Opcodes, SectionFormat, Types, ExportKind
 
 class Section:
     def __init__(self, id):

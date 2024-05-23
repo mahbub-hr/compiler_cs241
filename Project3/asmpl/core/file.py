@@ -29,7 +29,7 @@ def get_test_folder_path():
     current_file_path = os.path.realpath(__file__)
     current_directory = os.path.dirname(current_file_path)
     test_dir = os.path.dirname(current_directory)
-    test_dir = os.path.join(test_dir, os.path.join("test", get_test_folder_name()))
+    test_dir = os.path.join(test_dir, os.path.join("tests", get_test_folder_name()))
     return test_dir
 
 def get_test_dot_folder_path():

@@ -8,8 +8,8 @@
             "name": "Python: Main",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/src/main/main.py",
-            "cwd": "${workspaceFolder}/src/main",
+            "program": "${workspaceFolder}/src/main.py",
+            "cwd": "${workspaceFolder}/src/",
             // "PYTHONPATH": "${workspaceFolder}/src/main/.",
             "console": "integratedTerminal",
             "justMyCode": true
@@ -18,7 +18,7 @@
             "name": "Python: Test",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/src/test/RunTest.py",
+            "program": "${workspaceFolder}/src/tests/RunTest.py",
             "cwd": "${workspaceFolder}/src",
             "console": "integratedTerminal",
             "justMyCode": true
