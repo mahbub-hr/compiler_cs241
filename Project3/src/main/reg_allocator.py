@@ -4,15 +4,12 @@ import sys
 
 import code_generator
 from ssa_converter import reg_instruction
+from wasm import reg_to_wasm
 
 class register_allocator:
     reg_allocator = None
 
     def __init__(self):
-        self.no_gpr = Constant.NO_OF_GPR
-        self.phy_reg_start = Constant.PHY_REG_START
-        self.vir_reg_start = Constant.NO_OF_GPR
-        self.vir_reg_end = Constant.VIR_REG_END
         self.reg_alloacation = {}
 
     def get_reg_allocator():
@@ -21,47 +18,25 @@ class register_allocator:
         
         return register_allocator.reg_allocator
 
-    def next_phy_reg(self):
-        # No more physical reg
-        if self.phy_reg_start >= self.no_gpr:
-            return -1
-
-        reg_no = self.phy_reg_start
-        self.phy_reg_start = self.phy_reg_start + 1
-
-        return reg_no
-
-    def next_vir_reg(self):
-        # Unlimited Virtual Register
-        reg_no = self.vir_reg_start
-        self.vir_reg_start = self.vir_reg_start + 1
-
-        return reg_no
-
     def get_phy_reg(self, excluded_registers: set):
-        for i in range (self.phy_reg_start, self.no_gpr):
+        for i in range (Constant.PHY_REG_START, Constant.NO_OF_GPR):
             if i not in excluded_registers:
                 return i
             
         return NO_PHY_REG_AVAILABLE
 
     def get_vir_reg(self, excluded_registers: set):
-        for i in range (self.vir_reg_start, self.vir_reg_end):
+        for i in range (Constant.NO_OF_GPR, Constant.VIR_REG_END):
             if i not in excluded_registers:
                 return i
     
         return NO_VIR_REG_AVAILABLE
 
     def allocate_reg(self, degree, excluded_registers: set):
-        if degree > self.no_gpr:
+        if degree > Constant.NO_OF_GPR:
             return self.get_vir_reg(excluded_registers)
         
         return self.get_phy_reg(excluded_registers)
-
-    def deallocate_reg(self, reg_no):
-        self.reg_array[reg_no] = 0
-        return
-        
 
 class Graph:
     '''Used to represent interference of live variables'''
@@ -152,6 +127,7 @@ class Graph:
 
         return self.dot_str
 
+# Entry from parser
 def allocate_register(cfg_list):
     reg_allocator = register_allocator.get_reg_allocator()
 
@@ -161,10 +137,10 @@ def allocate_register(cfg_list):
 
     render_dot(cfg_list)
 
-    # for cfg in cfg_list:
-    #     convert_to_reg_instruction(cfg)
+    for cfg in cfg_list:
+        convert_to_reg_instruction(cfg)
 
-    # code_generator.render_dot("reg")
+    code_generator.render_dot("reg")
 
 def panic():
     Constant.info("**Resource Exhausted\n")
@@ -270,6 +246,8 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
 
 def convert_to_reg_instruction(cfg:code_generator.CFG):
     #{ins_id: reg no}
+    reg_to_stack = reg_to_wasm.get_reg_to_stack()
+    reg_to_stack.add_local_func()
     register_allocation = cfg.interference_graph.color
 
     id = cfg.init_bid+1
@@ -288,11 +266,3 @@ def convert_to_reg_instruction(cfg:code_generator.CFG):
         id = id + 1
 
     return
-
-def machine_code_gen(cfg:code_generator.CFG):
-    id = cfg.init_bid
-
-    while id <= cfg.b_id:
-        bb = cfg.tree[id]
-        for i in bb.table:
-            ins = code_generator.ins_array[i]

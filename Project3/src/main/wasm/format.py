@@ -42,6 +42,7 @@ class Opcodes(Enum):
   br_if = 0x0d,
   end = 0x0b,
   call = 0x10,
+  ret = 0x0F,
   get_local = 0x20,
   set_local = 0x21,
   i32_store_8 = 0x3a,
@@ -53,8 +54,19 @@ class Opcodes(Enum):
   f32_lt = 0x5d,
   f32_gt = 0x5e,
   i32_and = 0x71,
-  f32_add = 0x92,
-  f32_sub = 0x93,
-  f32_mul = 0x94,
-  f32_div = 0x95,
+  i32_add = 0x6A,
+  i32_sub = 0x6B,
+  i32_mul = 0x6C,
+  i32_div_s = 0x6D,
+  i32_div_u = 0x6E,
   i32_trunc_f32_s = 0xa8
+
+ 
+class MAP_SSA_TO_WASM(Enum):
+  add = Opcodes.i32_add.value,
+  sub = Opcodes.i32_sub.value,
+  mul = Opcodes.i32_mul.value,
+  div = Opcodes.i32_div_s.value,
+  call = Opcodes.call.value,
+  end = Opcodes.end.value
+

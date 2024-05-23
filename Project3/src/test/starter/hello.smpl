@@ -1,3 +1,7 @@
-main{
-    call OutputNum(3);
+main
+var a;
+{   
+    let a <- 1;
+    let a <- a + 2;
+    call OutputNum(a);
 }

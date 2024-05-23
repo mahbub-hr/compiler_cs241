@@ -7,9 +7,9 @@ def get_file_name_without_extension():
     return filename
 
 def get_test_folder_name():
-    return "presentation"
+    return "starter"
 
-def run_single_test(filename_="3.array"):
+def run_single_test(filename_="hello"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")

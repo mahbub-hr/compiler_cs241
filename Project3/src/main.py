@@ -1,6 +1,6 @@
-import parser
-import tokenizer
-from symbol_table import symbol_table
+import main.parser
+import main.tokenizer
+from main.symbol_table import symbol_table
 import file
 
 

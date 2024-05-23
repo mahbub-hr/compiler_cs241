@@ -1,5 +1,7 @@
 from code_generator import ins_array
 import Constant
+from wasm.reg_to_wasm import RegToStackMachineCode, get_reg_to_stack
+
 class reg_instruction:
     def __init__(self):
         self.opcode = ""
@@ -9,6 +11,8 @@ class reg_instruction:
         self.string = None
 
     def create_ins(ins, register_allocation):
+        reg_to_stack = get_reg_to_stack()
+        
         # for while branch block
         if ins.opcode == "phi":
             b_op = -1
@@ -27,7 +31,10 @@ class reg_instruction:
         reg_ins = reg_instruction()
 
         # end
-        if ins.opcode in ["end", "nop"]:
+        if ins.opcode == "end":
+            reg_to_stack.add_end_instruction("end")
+
+        if ins.opcode == "nop":
             reg_ins.string = ins.opcode
             return reg_ins
 
@@ -41,15 +48,18 @@ class reg_instruction:
         
         if ins.opcode == "ret":
             if ins.x <0:
+                reg_to_stack.add_push(ins_array[ins.x])
                 reg_ins.string = f"movei R31, {ins_array[ins.x].x}\nret"
-                return reg_ins
 
             elif ins.x:
+                reg_to_stack.push_variable(register_allocation[ins.x])
                 reg_ins.string = f"move R31, R{register_allocation[ins.x]}\nret"
-                return reg_ins
+
             else:
                 reg_ins.string = "ret"
-                return reg_ins
+
+            reg_to_stack.add_return_instruction()
+            return reg_ins
 
         if ins.opcode == "retval":
             reg_ins = reg_instruction.create_move_ins(register_allocation[ins.ins_id], 31)
@@ -62,11 +72,14 @@ class reg_instruction:
         reg_ins.opcode = reg_instruction.opcode(ins)
         # 1 reg ins
         if ins.opcode in ["read", "par"]:
+            # if ins.opcode == "read":
+
             reg_ins.string= f"{reg_ins.opcode} R{register_allocation[ins.ins_id]}"
             return reg_ins
 
         if ins.opcode == "arg":
             if ins.x <0:
+                reg_to_stack.push_constant(ins_array[ins.x])
                 reg_ins.string = f"movei R{register_allocation[ins.ins_id]}, {ins_array[ins.x].x}"
                 return reg_ins
 
@@ -77,14 +90,16 @@ class reg_instruction:
         if ins.opcode == "write":
             op = 0
             if ins.x < 0:
+                reg_to_stack.push_constant(ins_array[ins.x].x)
                 reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.x].x}"
             
             else:
+                reg_to_stack.push_variable(register_allocation[ins.x])
                 reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.x]}"
  
             return reg_ins
 
-        elif ins.opcode in Constant.BRACH_OPCODE:
+        elif ins.opcode in Constant.BRANCH_OPCODE:
             # bra(7)
             if ins.y is None:
                 reg_ins.r1 = ins.x
@@ -96,17 +111,25 @@ class reg_instruction:
 
         # 2 register instruciton
         elif ins.opcode=="cmp":
-            if ins.x < 0 and ins.y < 0:
-                reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.y].x}, {ins_array[ins.x].x}"
+            if ins.x < 0:
+                reg_to_stack.push_constant(ins_array[ins.x].x)
+                if ins.y < 0:
+                    reg_to_stack.push_constant(ins_array[ins.y].x)
+                    reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.y].x}, {ins_array[ins.x].x}"
 
-            elif ins.x < 0:
-                reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.y]}, {ins_array[ins.x].x}"
-            
-            elif ins.y < 0:
-                reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {ins_array[ins.y].x}" 
-
+                else:
+                    reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.y]}, {ins_array[ins.x].x}"
+                    reg_to_stack.push_variable(ins_array[ins.y])
+                    
             else:
-                reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {register_allocation[ins.y]}"
+                reg_to_stack.push_variable(register_allocation[ins.x])
+                if ins.y < 0:
+                    reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {ins_array[ins.y].x}" 
+                    reg_to_stack.push_constant(ins_array[ins.y].x)
+
+                else:
+                    reg_to_stack.push_variable(ins_array[ins.y])
+                    reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {register_allocation[ins.y]}"
 
             return reg_ins
 
@@ -136,14 +159,19 @@ class reg_instruction:
         # load Constant value
         if ins.x is not None and ins.x < 0:
             reg_ins.r3 = ins_array[ins.x].x 
+            reg_to_stack.push_constant(ins_array[ins.x].x)
 
         elif ins.y is not None and ins.y < 0:    
             reg_ins.r3 = ins_array[ins.y].x
+            reg_to_stack.push_constant(ins_array[ins.y].x)
             
         else:
+            reg_to_stack.push_variable(register_allocation[ins.x])
+            reg_to_stack.push_variable(register_allocation[ins.y])
             reg_ins.r2 = register_allocation[ins.x]
             reg_ins.r3 = "R" + str(register_allocation[ins.y])
             
+        reg_to_stack.add_instruction([x[:-1] if "i" in ins.opcode else ins.opcode])
         reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}, R{reg_ins.r2}, {reg_ins.r3}"
         return reg_ins
 

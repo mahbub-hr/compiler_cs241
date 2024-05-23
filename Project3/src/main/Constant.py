@@ -108,7 +108,7 @@ opcode = {
     "jsr": 18,
     "ret": 19
 }
-BRACH_OPCODE = {"bne", "beq", "ble", "blt", "bge", "bgt", "bra"}
+BRANCH_OPCODE = {"bne", "beq", "ble", "blt", "bge", "bgt", "bra"}
 # relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
 # default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
 # ins_array = {}
@@ -132,5 +132,5 @@ VIR_REG_END = 100
 NO_PHY_REG_AVAILABLE = -1
 NO_VIR_REG_AVAILABLE = -1
 # Machine Config
-NO_OF_GPR = 5
+NO_OF_GPR = 2 
 BP_REG = 30

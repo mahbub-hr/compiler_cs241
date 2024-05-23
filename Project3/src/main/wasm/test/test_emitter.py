@@ -1,4 +1,5 @@
 import unittest
+
 from emitter import Emitter, Section
 from format import SectionID, Opcodes, Types, ExportKind
 
@@ -154,7 +155,7 @@ class TestEmitter(unittest.TestCase):
         self.add_local_func([], [], 0, bytearray([0x41, 0x2b, 0x41, 0x36, 0x6a, 0x10, 0, 0x0b]))
         buffer = self.emitter.encode_module()
 
-        with open (os.path.join(dir_name, "WebassemblyTest/new_hello.wasm"), 'wb') as f:
+        with open(os.path.join(dir_name, "../WebassemblyTest/new_hello.wasm"), 'wb') as f:
             f.write(buffer)
 
         compare_bytearray(wasm_bytes, buffer)
