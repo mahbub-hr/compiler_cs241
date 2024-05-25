@@ -1,10 +1,9 @@
-import Constant
-import file
+from asmpl.core import file, Constant
 import sys
 
-import code_generator
-from ssa_converter import reg_instruction
-from wasm import reg_to_wasm
+from asmpl.core import code_generator
+from asmpl.core.ssa_converter import reg_instruction
+from asmpl.wasm import reg_to_wasm
 
 class register_allocator:
     reg_allocator = None
@@ -136,9 +135,12 @@ def allocate_register(cfg_list):
         interference_graph.color_graph(reg_allocator)
 
     render_dot(cfg_list)
+    reg_to_stack = reg_to_wasm.get_reg_to_stack()
 
     for cfg in cfg_list:
         convert_to_reg_instruction(cfg)
+
+    reg_to_stack.write_to_file()
 
     code_generator.render_dot("reg")
 
@@ -150,7 +152,7 @@ def build_interference_graph_cfg_list(cfg_list):
     dot_str = ""
 
     for cfg in cfg_list:
-        graph = Graph(cfg.name)
+        graph = Graph(cfg.symbol.name)
 
         for id in cfg.tree:
             build_interference_graph(cfg.tree[id], graph)
@@ -196,14 +198,16 @@ def live_variable_analysis(cfg_list):
 # def coalesce_live_range(cfg_list):
 #     for cfg in cfg_list:
 
-def convert_normal_block(bb:code_generator.BB, register_allocation):
+def convert_normal_block(bb, register_allocation):
     ins_array = []
     num_of_ins = len(bb.table)
     ins_table = bb.table
     start_ins =0
     
     while start_ins < num_of_ins:
-        ins_array.append(reg_instruction.create_ins(code_generator.ins_array[ins_table[start_ins]], register_allocation))
+        ins = code_generator.ins_array[ins_table[start_ins]]
+        register_ins = reg_instruction.create_ins(ins, register_allocation)
+        ins_array.append(register_ins)
         start_ins = start_ins + 1
 
     bb.reg_instruction = ins_array
@@ -244,10 +248,10 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
 
     convert_normal_block(bb, register_allocation)
 
-def convert_to_reg_instruction(cfg:code_generator.CFG):
+def convert_to_reg_instruction(cfg):
     #{ins_id: reg no}
     reg_to_stack = reg_to_wasm.get_reg_to_stack()
-    reg_to_stack.add_local_func()
+    reg_to_stack.add_local_func(cfg.symbol.name, cfg.symbol.param_list, cfg.symbol.return_type)
     register_allocation = cfg.interference_graph.color
 
     id = cfg.init_bid+1
@@ -264,5 +268,7 @@ def convert_to_reg_instruction(cfg:code_generator.CFG):
             convert_normal_block(bb, register_allocation)
 
         id = id + 1
+
+    reg_to_stack.append_func_to_module()
 
     return

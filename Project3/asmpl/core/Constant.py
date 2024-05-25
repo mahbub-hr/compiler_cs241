@@ -21,6 +21,7 @@ def info(msg):
 # Symbol 
 VAR_PAR = 0
 VAR_REG = 1
+MAIN_FUNC_NAME = "main"
 
 # TokenizerPERIOD = -1
 ADDOP = 1

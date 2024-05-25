@@ -6,20 +6,20 @@
     "configurations": [
         {
             "name": "Python: Main",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/main.py",
-            "cwd": "${workspaceFolder}/src/",
+            "program": "${workspaceFolder}/asmpl/main.py",
+            "cwd": "${workspaceFolder}/asmpl",
             // "PYTHONPATH": "${workspaceFolder}/src/main/.",
             "console": "integratedTerminal",
             "justMyCode": true
         },
         {
             "name": "Python: Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/tests/RunTest.py",
-            "cwd": "${workspaceFolder}/src",
+            "program": "${workspaceFolder}/asmpl/tests/RunTest.py",
+            "cwd": "${workspaceFolder}/asmpl",
             "console": "integratedTerminal",
             "justMyCode": true
         },

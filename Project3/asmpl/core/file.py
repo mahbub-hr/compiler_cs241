@@ -1,6 +1,6 @@
 import os
-import parser
-import tokenizer
+from asmpl.core import parser
+from asmpl.core import tokenizer
 filename =""
 def get_file_name_without_extension():
     global filename
@@ -32,17 +32,28 @@ def get_test_folder_path():
     test_dir = os.path.join(test_dir, os.path.join("tests", get_test_folder_name()))
     return test_dir
 
-def get_test_dot_folder_path():
-    current_file_path = os.path.realpath(__file__)
-    current_directory = os.path.dirname(current_file_path)
-    test_dir = os.path.dirname(current_directory)
-    test_dir = os.path.join(test_dir, os.path.join("resource", "dot", get_test_folder_name()))
+def get_resource_folder_path():
+    test_dir = get_test_folder_path()
+    asmpl_dir = os.path.dirname(os.path.dirname(test_dir))
+    test_dir = os.path.join(asmpl_dir, os.path.join("resource"))
     os.makedirs(test_dir, exist_ok=True)
     
     return test_dir
 
+def get_test_dot_folder_path():
+    return os.path.join(get_resource_folder_path(),"dot" )
+
+def get_test_wasm_folder_path():
+    return os.path.join(get_resource_folder_path(),"wasm" )
+
 def get_dot_file_path():
-    path = os.path.join(get_test_dot_folder_path(), get_file_name_without_extension())
+    path = os.path.join(get_test_dot_folder_path(), get_test_folder_name(), get_file_name_without_extension())
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def get_wasm_file_path():
+    path = os.path.join(get_test_wasm_folder_path(), get_test_folder_name(), get_file_name_without_extension())
+    os.makedirs(path, exist_ok=True)
     return path
 
 def get_file_path_without_extension():

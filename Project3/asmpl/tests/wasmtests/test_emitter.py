@@ -1,7 +1,7 @@
 import unittest
 
-from emitter import Emitter, Section
-from format import SectionID, Opcodes, Types, ExportKind
+from asmpl.wasm.emitter import Emitter, Section
+from asmpl.wasm.format import SectionID, Opcodes, Types, ExportKind
 
 def compare_bytearray(arr1, arr2):
     l = min(len(arr1), len(arr2))
@@ -135,10 +135,10 @@ class TestEmitter(unittest.TestCase):
 
 
     def test_add_func_body(self):
-        body = bytearray([0x41, 0x2b, 0x41, 0x36, 0x6a, 0x10, 0, 0x0b])
-        self.emitter.add_func_body(0, body)
+        body = bytearray([0, 0x41, 0x2b, 0x41, 0x36, 0x6a, 0x10, 0, 0x0b])
+        self.emitter.add_func_body(body)
         buffer1 = self.emitter.code_section.encode()
-        buffer =  bytearray([0x0a, 0x0b, 1, 9, 0]) + body
+        buffer =  bytearray([0x0a, 0x0b, 1, 9]) + body
 
         self.assertEqual(buffer, buffer1)
 
@@ -152,20 +152,20 @@ class TestEmitter(unittest.TestCase):
 
         self.emitter.init_import_section()
         self.emitter.init_export_section()
-        self.add_local_func([], [], 0, bytearray([0x41, 0x2b, 0x41, 0x36, 0x6a, 0x10, 0, 0x0b]))
+        self.add_local_func([], [], bytearray([0, 0x41, 0x2b, 0x41, 0x36, 0x6a, 0x10, 0, 0x0b]))
         buffer = self.emitter.encode_module()
 
-        with open(os.path.join(dir_name, "../WebassemblyTest/new_hello.wasm"), 'wb') as f:
+        with open(os.path.join(dir_name, "new_hello.wasm"), 'wb') as f:
             f.write(buffer)
 
         compare_bytearray(wasm_bytes, buffer)
         self.assertEqual(len(wasm_bytes), len(buffer))
         self.assertEqual(wasm_bytes, buffer)
 
-    def add_local_func(self, params: list, results: list, local_decl_count, body):
+    def add_local_func(self, params: list, results: list, body):
         self.emitter.add_function_type(params, results)
         self.emitter.add_func()
-        self.emitter.add_func_body(local_decl_count, body)
+        self.emitter.add_func_body(body)
 
 
 if __name__== '__main__':

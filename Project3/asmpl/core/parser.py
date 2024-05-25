@@ -1,12 +1,8 @@
-import tokenizer
-from tokenizer import *
-from symbol_table import  symbol_info
+from asmpl.core import tokenizer, code_generator, reg_allocator, symbol_table
+from asmpl.core.symbol_table import  symbol_info
 import sys
-from Constant import *
-import code_generator
-import reg_allocator
+from asmpl.core.Constant import *
 import copy
-import symbol_table
 
 
 _tokenizer = None
@@ -118,13 +114,15 @@ def computation():
     table.print()
     match_or_error(LCURL)
     next()
+    symbol = insert_func("main", [], False)
     code_generator.cfg =  code_generator.instantiate_main_CFG(symbol_list)
+    code_generator.cfg.symbol = symbol
     stat_sequence()
     # code_generator.cfg.tree[code_generator.cfg.b_id].delete_marked_instruction()
     code_generator.code_end()
     match_or_error(RCURL)
     next()
-    match_or_error(PERIOD)
+    match_or_error(tokenizer.PERIOD)
 
     return
     
@@ -206,7 +204,7 @@ def func_declaration():
     next()
 
     code_generator.cfg = code_generator.CFG(code_generator.current_bid)
-    code_generator.cfg.name = func_name
+    code_generator.cfg.symbol = symbol
     code_generator.cfg_list.append(code_generator.cfg)
     param_list = code_generator.code_func_parameter(param_list)
     func_body()

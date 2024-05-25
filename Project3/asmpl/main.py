@@ -1,7 +1,4 @@
-import parser
-import tokenizer
-from symbol_table import symbol_table
-import file
+from core import file
 
 
 def main():

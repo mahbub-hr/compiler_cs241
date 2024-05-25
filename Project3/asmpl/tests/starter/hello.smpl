@@ -1,7 +1,15 @@
 main
 var a;
+function print(a);
+{
+    call OutputNum(a);
+
+    return a
+};
 {   
     let a <- 1;
     let a <- a + 2;
-    call OutputNum(a);
+    let a <- call print(a);
+    let a <- a + a;
+    call OutputNum(a)
 }

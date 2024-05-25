@@ -1,6 +1,6 @@
-from Constant import *
-from tokenizer import *
-import symbol_table
+from asmpl.core.Constant import *
+from asmpl.core.tokenizer import Tokenizer
+from asmpl.core import symbol_table, file
 import json
 import copy
 
@@ -639,7 +639,7 @@ class CFG:
             edge = edge + "\t\t"+bb.dot_edge()
             id =id + 1
 
-        edge = "\nsubgraph cluster_"+self.name+"{\nrankdir=LR;\n\tlabel="+self.name+"\n\t"+edge+"\n}" 
+        edge = "\nsubgraph cluster_"+self.symbol.name+"{\nrankdir=LR;\n\tlabel="+self.symbol.name+"\n\t"+edge+"\n}" 
         return node, edge
 
     
@@ -720,7 +720,6 @@ def instantiate_main_CFG(symbol_list:list):
     return cfg
 
 def render_dot(ext=""):
-    import file
     node = ""
     edge = ""
 

@@ -1,8 +1,12 @@
-from code_generator import ins_array
-import Constant
-from wasm.reg_to_wasm import RegToStackMachineCode, get_reg_to_stack
+from asmpl.core import Constant, code_generator
+from asmpl.wasm import reg_to_wasm 
+
+def get_const_val(x):
+        return ins_array[x].x
 
 class reg_instruction:
+    ins_array = code_generator.ins_array
+
     def __init__(self):
         self.opcode = ""
         self.r1 = -1
@@ -10,8 +14,55 @@ class reg_instruction:
         self.r3 = -1   
         self.string = None
 
+
+    def check_x(reg_ins, register_allocation, x):
+        regtowasm = reg_to_wasm.get_reg_to_stack()
+        if x < 0:
+            regtowasm.push_constant(get_const_val(x))
+            reg_ins.string = f"push {get_const_val(x)}"
+
+        else: 
+            regtowasm.push_variable(register_allocation[x])
+            reg_ins.string = f"local.get {register_allocation[x]}"
+        
+        return reg_ins
+
+    def check_xy(reg_ins, register_allocation, x, y):
+        regtowasm = reg_to_wasm.get_reg_to_stack()
+        ins_array = code_generator.ins_array
+        if x > 0:
+            rx = register_allocation[x]
+            reg_ins.r2 = rx
+            regtowasm.push_variable(rx)
+            if y > 0:
+                ry = register_allocation[x]
+                reg_ins.r3 = ry
+                regtowasm.push_variable(ry)
+            
+            else:
+                const_y = ins_array[y].x
+                reg_ins.r3 = const_y
+                regtowasm.push_constant(const_y)
+        else:
+            const_x = ins_array[x].x
+            reg_ins.r3 = const_x
+            regtowasm.push_constant(const_x)
+
+            if y > 0:
+                ry = register_allocation[x]
+                reg_ins.r2 = ry
+                regtowasm.push_variable(ry)
+            
+            else:
+                const_y = ins_array[y].x
+                reg_ins.r3 = const_y
+                regtowasm.push_constant(const_y)
+                
+        return reg_ins
+
+
     def create_ins(ins, register_allocation):
-        reg_to_stack = get_reg_to_stack()
+        reg_to_stack = reg_to_wasm.get_reg_to_stack()
         
         # for while branch block
         if ins.opcode == "phi":
@@ -32,7 +83,8 @@ class reg_instruction:
 
         # end
         if ins.opcode == "end":
-            reg_to_stack.add_end_instruction("end")
+            reg_ins.string = "end"
+            return reg_ins
 
         if ins.opcode == "nop":
             reg_ins.string = ins.opcode
@@ -42,19 +94,19 @@ class reg_instruction:
             reg_ins.string = "writeNL"
             return reg_ins
 
-        if ins.opcode in ["jsr", "kill"]:
+        if ins.opcode == "kill":
+            reg_ins.string = f"{ins.opcode} {ins.x}"
+            return reg_ins
+
+        if ins.opcode == "jsr":
+            reg_to_stack.call_function(ins.x)
             reg_ins.string = f"{ins.opcode} {ins.x}"
             return reg_ins
         
         if ins.opcode == "ret":
-            if ins.x <0:
-                reg_to_stack.add_push(ins_array[ins.x])
-                reg_ins.string = f"movei R31, {ins_array[ins.x].x}\nret"
-
-            elif ins.x:
-                reg_to_stack.push_variable(register_allocation[ins.x])
-                reg_ins.string = f"move R31, R{register_allocation[ins.x]}\nret"
-
+            if ins.x:
+                reg_instruction.check_x(reg_ins, register_allocation, ins.x)
+            
             else:
                 reg_ins.string = "ret"
 
@@ -71,32 +123,25 @@ class reg_instruction:
 
         reg_ins.opcode = reg_instruction.opcode(ins)
         # 1 reg ins
-        if ins.opcode in ["read", "par"]:
-            # if ins.opcode == "read":
-
+        if ins.opcode == "read":
             reg_ins.string= f"{reg_ins.opcode} R{register_allocation[ins.ins_id]}"
             return reg_ins
 
-        if ins.opcode == "arg":
-            if ins.x <0:
-                reg_to_stack.push_constant(ins_array[ins.x])
-                reg_ins.string = f"movei R{register_allocation[ins.ins_id]}, {ins_array[ins.x].x}"
-                return reg_ins
+        if ins.opcode == "par":
+            r = register_allocation[ins.ins_id]
+            reg_to_stack.get_parameter()
+            reg_to_stack.save_to_reg(r)
+            reg_ins.string= f"{reg_ins.opcode} R{r}"
+            return reg_ins
 
-            else:
-                reg_ins.string = f"move R{register_allocation[ins.ins_id]}, R{register_allocation[ins.x]}"
-                return reg_ins
+        if ins.opcode == "arg":
+            reg_ins = reg_instruction.check_x(reg_ins, register_allocation, ins.x)
+            
+            return reg_ins
 
         if ins.opcode == "write":
-            op = 0
-            if ins.x < 0:
-                reg_to_stack.push_constant(ins_array[ins.x].x)
-                reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.x].x}"
-            
-            else:
-                reg_to_stack.push_variable(register_allocation[ins.x])
-                reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.x]}"
- 
+            reg_instruction.check_x(reg_ins, register_allocation, ins.x)
+            reg_to_stack.add_print_instruction()
             return reg_ins
 
         elif ins.opcode in Constant.BRANCH_OPCODE:
@@ -157,30 +202,20 @@ class reg_instruction:
         reg_ins.r1 = register_allocation[ins.ins_id]
         
         # load Constant value
-        if ins.x is not None and ins.x < 0:
-            reg_ins.r3 = ins_array[ins.x].x 
-            reg_to_stack.push_constant(ins_array[ins.x].x)
-
-        elif ins.y is not None and ins.y < 0:    
-            reg_ins.r3 = ins_array[ins.y].x
-            reg_to_stack.push_constant(ins_array[ins.y].x)
-            
-        else:
-            reg_to_stack.push_variable(register_allocation[ins.x])
-            reg_to_stack.push_variable(register_allocation[ins.y])
-            reg_ins.r2 = register_allocation[ins.x]
-            reg_ins.r3 = "R" + str(register_allocation[ins.y])
-            
-        reg_to_stack.add_instruction([x[:-1] if "i" in ins.opcode else ins.opcode])
+        
+        reg_instruction.check_xy(reg_ins, register_allocation, ins.x, ins.y)
+        
+        reg_to_stack.add_instruction(reg_ins.opcode)
+        reg_to_stack.save_to_reg(reg_ins.r1)
         reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}, R{reg_ins.r2}, {reg_ins.r3}"
         return reg_ins
 
     def opcode(ins):
         if "i" in ins.opcode:
-            return ins.opcode
+            return ins.opcode[:-1]
 
         if ins.x is not None and ins.y is not None and  (ins.x <0 or ins.y < 0):
-            return ins.opcode+"i"
+            return ins.opcode
         
         return ins.opcode
 

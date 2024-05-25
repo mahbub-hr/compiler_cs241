@@ -1,6 +1,5 @@
-import tokenizer
-from tokenizer import * 
-from Constant import *
+from asmpl.core import tokenizer
+from asmpl.core.Constant import *
 
 import copy
 

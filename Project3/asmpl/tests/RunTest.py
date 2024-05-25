@@ -1,7 +1,7 @@
 import unittest
 
 # Import all test classes from separate files
-from test_emitter import TestEmitter
+from wasmtests.test_emitter import TestEmitter
 if __name__ == '__main__':
     # Create a test suite
     suite = unittest.TestSuite()

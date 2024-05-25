@@ -1,5 +1,5 @@
 
-from wasm.format import SectionID, Opcodes, SectionFormat, Types, ExportKind
+from asmpl.wasm.format import SectionID, Opcodes, SectionFormat, Types, ExportKind
 
 class Section:
     def __init__(self, id):
@@ -22,6 +22,7 @@ class Section:
         return buffer
 
 class Emitter:
+    LOG_FUNC_IDX = None
     WASM_BINARY_MAGIC = bytearray(b'\x00\x61\x73\x6d')
     WASM_BINARY_VERSION = bytearray(b'\x01\x00\x00\x00')
 
@@ -49,14 +50,15 @@ class Emitter:
     #     self.func_section = self.encode_section(Section._func.value)
     #     return self.func_section
 
-    def init_export_section(self):
+    def init_export_section(self, func_idx):
         """Always export a default main function"""
-        self.add_export("main", ExportKind.func.value, self.type_section.num_of_entry)
+        self.add_export("main", ExportKind.func.value, func_idx)
 
         return self.export_section
 
     def init_import_section(self):
         self.add_import("console", "log", ExportKind.func.value)
+        Emitter.LOG_FUNC_IDX = self.type_section.num_of_entry
         self.add_function_type([Types.i32.value], [])
 
         return self.import_section
@@ -74,6 +76,10 @@ class Emitter:
         return buffer
 
     def add_function_type(self, params:list, results:list ):
+        '''
+            params = [Types.i32.value, Types.i64.value, ..]
+            results = [Types.i32.value, Types.i64.value, ..]
+        '''
         buffer = bytearray()
         buffer.append(Types.func.value)
         buffer.extend(self.add_result_type(params))
@@ -100,9 +106,8 @@ class Emitter:
         self.export_section.add_entry(buffer)
         return buffer
         
-    def add_func_body(self, num_of_local, body:bytearray):
-        buffer = bytearray([num_of_local]) + body
-        buffer = bytearray([len(buffer)]) + buffer
+    def add_func_body(self, body:bytearray):
+        buffer = bytearray([len(body)]) + body
         self.code_section.add_entry(buffer)
 
         return buffer
@@ -112,10 +117,14 @@ class Emitter:
         return buffer
 
     def write_to_file(self, filename, buffer):
-        with open(filename+".wasm", "wb") as f:
+        '''filename: without extension'''
+        with open(filename+"test.wasm", "wb") as f:
             f.write(buffer)
         
         return
+
+    def get_num_of_types(self):
+        return self.type_section.num_of_entry
 
     def print_buffer(self):
         # Print 4 bytes per line with index
