@@ -7,9 +7,9 @@ def get_file_name_without_extension():
     return filename
 
 def get_test_folder_name():
-    return "starter"
+    return "community"
 
-def run_single_test(filename_="hello"):
+def run_single_test(filename_="1.fibonacci"):
     global filename 
     filename = filename_
     print(f"File:: {filename} =====> starting ... \n")

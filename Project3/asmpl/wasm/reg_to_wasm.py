@@ -17,15 +17,16 @@ class WasmFunc:
         self.params = _type
         return 
 
-    def get_param(self):
-        self.fetched_param_idx = self.fetched_param_idx + 1
+    # def get_param(self):
+    #     '''Subsequent call to this function fetch the next parameter in the list'''
+    #     self.fetched_param_idx = self.fetched_param_idx + 1
         
-        if self.fetched_param_idx >= len(self.params):
-            sys.exit("Get call on param exceeds the number of parameters")
+    #     if self.fetched_param_idx >= len(self.params):
+    #         sys.exit("Get call on param exceeds the number of parameters")
 
-        self.add_instruction(bytearray([Opcodes.get_local.value, self.fetched_param_idx]))
+    #     self.add_instruction(bytearray([Opcodes.get_local.value, self.fetched_param_idx]))
 
-        return 
+    #     return 
 
     def add_local(self, _type:Types.i32.value):
         if _type not in self.local_type:
@@ -40,7 +41,7 @@ class WasmFunc:
 
     def add_instruction(self, instruciton:bytearray):
         self.body.extend(instruciton)
-
+        
     def to_byte_array(self):
         buffer = bytearray()
 
@@ -92,13 +93,19 @@ class RegToStackMachineCode:
         emitter.add_func()
         emitter.add_func_body(func.to_byte_array())
 
-
     def add_instruction(self, opcode:str):
-        
+        if opcode == "bra":#ignore
+            return 
+
         opcode = MAP_SSA_TO_WASM[opcode]
         self.cur_function.add_instruction(bytearray([opcode.value]))
 
         return
+
+    def add_label_instruction(self, opcode:str, label):
+        opcode = MAP_SSA_TO_WASM[opcode]
+        self.cur_function.add_instruction(bytearray([opcode.value, label]))
+        return 
 
     def call_function(self, func_name):
         func_idx = self.func_type_idx[func_name]
@@ -110,10 +117,6 @@ class RegToStackMachineCode:
         buffer = bytearray([Opcodes.call.value, Emitter.LOG_FUNC_IDX])
         self.cur_function.add_instruction(buffer)
         return buffer
-
-    def get_parameter(self):
-        self.cur_function.get_param()
-        return 
 
     def push_constant(self, const:int):
         arr = bytearray([Opcodes.i32_const.value, const]) 
@@ -129,8 +132,12 @@ class RegToStackMachineCode:
 
         self.cur_function.add_instruction(bytearray([Opcodes.get_local.value, var_idx]))
     
+    def input(self, reg_no):
+        self.cur_function.remove_last_instruction()
+        return
+
     def create_or_get_wasm_variable(self, reg_no):
-        '''Does not set the value'''
+        '''Map reg_no --> wasm var_idx. Does not set the var.'''
         if reg_no in self.reg_to_var:
             return self.reg_to_var[reg_no]
 
@@ -146,11 +153,12 @@ class RegToStackMachineCode:
         return
 
     def save_to_reg(self, reg_no):
-        '''save the top of the stack to reg_no'''
+        '''save the top of the stack to reg_no --> var_idx''' 
         var_idx = self.create_or_get_wasm_variable(reg_no)
         self.set_variable(var_idx)
 
         return
+
 
     def write_to_file(self):
         buffer = self.emitter.encode_module()

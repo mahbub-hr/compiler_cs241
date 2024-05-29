@@ -81,9 +81,10 @@ CONST_FOUR_ADDR = -2
 IF_JOIN_BB_ID = -1 # Replace this
 CONST_BB_ID = 0
 IF_JOIN_BLOCK = 1
-WHILE_JOIN_BB = 2
+WHILE_JOIN_BLOCK = 2
 IF_HEADER_BLOCK = 3
-ELSE_BLOCK = 4
+IF_BLOCK = 4
+ELSE_BLOCK = 5
 INSTRUCTION = 7
 PSEUDO_INSTRUCTION= 8
 PHI_START_IDX = -1
@@ -110,10 +111,10 @@ opcode = {
     "ret": 19
 }
 BRANCH_OPCODE = {"bne", "beq", "ble", "blt", "bge", "bgt", "bra"}
-# relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
+relOp_while = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
 # default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
 # ins_array = {}
-# pc = 0
+# pc 
 # neg_pc = 0
 # phi= {}
 

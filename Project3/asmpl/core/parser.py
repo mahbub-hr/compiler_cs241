@@ -1,4 +1,4 @@
-from asmpl.core import tokenizer, code_generator, reg_allocator, symbol_table
+from asmpl.core import tokenizer, code_generator, reg_allocator, symbol_table, Constant
 from asmpl.core.symbol_table import  symbol_info
 import sys
 from asmpl.core.Constant import *
@@ -316,25 +316,17 @@ def func_call():
         if arg_symbol:
             if arg_symbol.val:
                 arg_symbol.addr = code_generator.code_constant(arg_symbol.val)
-                args.append(arg_symbol.addr)
-            
-            else:
-                # can be a variable or array
-                addr = arg_symbol.addr
-                args.append(addr)
+                
+            args.append(arg_symbol)
 
         while match(COMMA):
             next()
             arg_symbol = E()
             if arg_symbol:
-                if symbol.val:
+                if arg_symbol.val:
                     arg_symbol.addr = code_generator.code_constant(arg_symbol.val)
-                    args.append(arg_symbol.addr)
+                args.append(arg_symbol)
             
-                else:
-                    addr = arg_symbol.addr
-                    args.append(addr)
-        
         match_or_error(RPAREN)
         next()
     
@@ -343,7 +335,9 @@ def func_call():
     if func_name not in code_generator.default_foo:
         # code_generator.cfg.tree[code_generator.get_bid()].add_func_call(symbol.cfg)
         code_generator.cfg.add_bb()
-        res = code_generator.code_return_val(res)
+
+        if symbol.return_type:
+            res = code_generator.code_return_val(res)
         # code_generator.cfg.tree[code_generator.get_bid()].add_func_return(symbol.cfg)
 
     # Model reutrn value as 1. retval(x) if the function has return type. then return 1 as addr     
@@ -362,7 +356,7 @@ def if_statement():
     match_or_error(IF)
     next()
     relation()
-    code_generator.cfg.tree[code_generator.get_bid()].type = IF_HEADER_BLOCK
+    code_generator.cfg.tree[code_generator.get_bid()].if_type.append(IF_HEADER_BLOCK)
     # code_generator.cfg.tree[prev_bid].delete_marked_instruction()
     
     # Then block
@@ -370,25 +364,26 @@ def if_statement():
     match_or_error(THEN)
     next()
     code_generator.cfg.add_bb()
+    code_generator.cfg.tree[code_generator.get_bid()].if_type.append(Constant.IF_BLOCK)
     jump_ins = code_generator.get_pc()
     stat_sequence()
     left = code_generator.get_max_bid()
     right = 0
     code_generator.add_nop(code_generator.cfg.b_id)
-    # code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
-
+    
     # Else block
-    code_generator.code_else(prev_bid)
+    else_first_block = code_generator.code_else(prev_bid)
+    
+    code_generator.cfg.tree[code_generator.get_bid()].if_type.append(Constant.ELSE_BLOCK)
     if match(ELSE):
         next()
         join_bb.phi_x_operand = False
         stat_sequence()
-    
-    # code_generator.cfg.tree[code_generator.get_bid()].delete_marked_instruction()
-    right = code_generator.get_max_bid()
 
-    code_generator.add_join_bb(left, right, jump_ins)
+    right = code_generator.get_max_bid()
+    code_generator.add_join_bb(left, right, jump_ins, else_first_block)
     match_or_error(FI)
+    code_generator.code_fi()
     code_generator.pop_phi()
     next()
 
@@ -399,7 +394,7 @@ def while_statement():
     # While JOIN BLOCK
     join_bid = code_generator.cfg.add_bb()
     code_generator.insert_join_bb_while()
-    code_generator.cfg.tree[code_generator.get_bid()].type = WHILE_JOIN_BB
+    code_generator.cfg.tree[code_generator.get_bid()].join_type = WHILE_JOIN_BLOCK
 
 
     match_or_error(WHILE)
@@ -422,6 +417,7 @@ def while_statement():
 def return_statement():
     match_or_error(RETURN)
     next()
+    # Todo: check if func return
     symbol = E()
     code_generator.code_return(symbol)
     return

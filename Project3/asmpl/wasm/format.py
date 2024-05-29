@@ -38,6 +38,9 @@ class ExportKind(Enum):
 class Opcodes(Enum):
   block = 0x02
   loop = 0x03
+  void = 0x40
+  _if = 0x04
+  _else =0x05  
   br = 0x0c
   br_if = 0x0d
   end = 0x0b
@@ -47,19 +50,20 @@ class Opcodes(Enum):
   set_local = 0x21
   i32_store_8 = 0x3a
   i32_const = 0x41
-  f32_const = 0x43
-  i32_eqz = 0x45
-  i32_eq = 0x46
-  f32_eq = 0x5b
-  f32_lt = 0x5d
-  f32_gt = 0x5e
   i32_and = 0x71
   i32_add = 0x6A
   i32_sub = 0x6B
   i32_mul = 0x6C
   i32_div_s = 0x6D
   i32_div_u = 0x6E
-  i32_trunc_f32_s = 0xa8
+  i32_trunc_f32_s = 0xA8
+  i32_lt_s = 0x48
+  i32_gt_s = 0x4A
+  i32_le_s = 0x4C
+  i32_ge_s = 0x4E
+  i32_ne = 0x47
+  i32_eq = 0x46
+
 
  
 class MAP_SSA_TO_WASM(Enum):
@@ -68,5 +72,19 @@ class MAP_SSA_TO_WASM(Enum):
   mul = Opcodes.i32_mul.value
   div = Opcodes.i32_div_s.value
   call = Opcodes.call.value
+  ret = Opcodes.ret.value
   end = Opcodes.end.value
+  blt = Opcodes.i32_lt_s.value
+  bgt = Opcodes.i32_gt_s.value
+  ble = Opcodes.i32_le_s.value
+  bge = Opcodes.i32_ge_s.value
+  bne = Opcodes.i32_ne.value
+  beq = Opcodes.i32_eq.value 
+  bra = Opcodes.br.value
+  bra_if = Opcodes.br_if.value
+  _if = Opcodes._if.value
+  _else = Opcodes._else.value
+  void = Opcodes.void.value
+  block = Opcodes.block.value
+  loop = Opcodes.loop.value
 

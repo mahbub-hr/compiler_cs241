@@ -138,6 +138,11 @@ def allocate_register(cfg_list):
     reg_to_stack = reg_to_wasm.get_reg_to_stack()
 
     for cfg in cfg_list:
+        remove_phi(cfg)
+    
+    code_generator.render_dot("phi_removed")
+
+    for cfg in cfg_list:
         convert_to_reg_instruction(cfg)
 
     reg_to_stack.write_to_file()
@@ -203,10 +208,10 @@ def convert_normal_block(bb, register_allocation):
     num_of_ins = len(bb.table)
     ins_table = bb.table
     start_ins =0
-    
+
     while start_ins < num_of_ins:
         ins = code_generator.ins_array[ins_table[start_ins]]
-        register_ins = reg_instruction.create_ins(ins, register_allocation)
+        register_ins = reg_instruction.create_ins(ins, register_allocation, bb)
         ins_array.append(register_ins)
         start_ins = start_ins + 1
 
@@ -229,7 +234,7 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
             i = i+1
             continue
 
-        if bb.type == Constant.IF_JOIN_BLOCK:
+        if bb.join_type == Constant.IF_JOIN_BLOCK:
             b_parent = parent_bb[0]
             f_parent = parent_bb[1]
             b_ssa = phi_ins.x
@@ -246,8 +251,6 @@ def convert_phi_block(bb, parent_bb:list, register_allocation):
     for j in range(0, i):
         bb.table.pop(0)
 
-    convert_normal_block(bb, register_allocation)
-
 def convert_to_reg_instruction(cfg):
     #{ins_id: reg no}
     reg_to_stack = reg_to_wasm.get_reg_to_stack()
@@ -260,15 +263,40 @@ def convert_to_reg_instruction(cfg):
 
         bb = cfg.tree[id]
 
-        if bb.type == Constant.IF_JOIN_BLOCK or bb.type == Constant.WHILE_JOIN_BB:
-            parent_bb = [cfg.tree[bb.prev[0]], cfg.tree[bb.prev[1]]]
-            convert_phi_block(bb, parent_bb, register_allocation)
+        if Constant.IF_BLOCK in bb.if_type:
+            reg_to_stack.add_instruction("_if")
+            reg_to_stack.add_instruction("void")
+
+        elif Constant.ELSE_BLOCK in bb.if_type:
+            reg_to_stack.add_instruction("_else")
+
+        elif bb.join_type == Constant.WHILE_JOIN_BLOCK:
+            reg_to_stack.add_instruction("block")# label to break out of loop
+            reg_to_stack.add_instruction("void")
+            reg_to_stack.add_instruction("loop") # label to jump in to the loop
+            reg_to_stack.add_instruction("void")
 
         else:
-            convert_normal_block(bb, register_allocation)
+            pass
+
+        convert_normal_block(bb, register_allocation)
 
         id = id + 1
 
     reg_to_stack.append_func_to_module()
 
     return
+    
+def remove_phi(cfg):
+    '''Remove the phi instruction and insert the move instruction'''
+    id = cfg.init_bid + 1
+    register_allocation = cfg.interference_graph.color
+
+    while id <= cfg.b_id:
+        bb = cfg.tree[id]
+
+        if bb.join_type == Constant.IF_JOIN_BLOCK or bb.join_type == Constant.WHILE_JOIN_BLOCK:
+            parent_bb = [cfg.tree[bb.prev[0]], cfg.tree[bb.prev[1]]]
+            convert_phi_block(bb, parent_bb, register_allocation)
+        
+        id = id +1

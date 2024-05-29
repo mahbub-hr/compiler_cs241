@@ -54,6 +54,16 @@ class TestRegToWasm(unittest.TestCase):
         buffer1 = bytearray([format.Opcodes.call.value, 0])
         self.assertEqual(buffer, buffer1)
 
+    def test_if_else(self):
+        self.regtowasm.add_local_func("main", [], False)
+        self.regtowasm.push_constant(1)
+        self.regtowasm.push_constant(3)
+        self.regtowasm.add_instruction("bgt")
+        self.regtowasm.add_instruction("_if")
+        self.regtowasm.add_instruction("void")
+        self.regtowasm.add_instruction("")
+        self.regtowasm.add_instruction()
+
     def test_add_smpl(self):
         # 1: assign(a)(#1)
         # 2. add(#1)(#2)
@@ -61,7 +71,7 @@ class TestRegToWasm(unittest.TestCase):
         # 4. write(2)
         # 5. end
 
-        self.regtowasm.add_local_func([], False)
+        self.regtowasm.add_local_func("main", [], False)
         reg_alloacation = get_simple_register_allocation([2])
         self.regtowasm.push_constant(1)
         self.regtowasm.push_constant(2)

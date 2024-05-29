@@ -2,7 +2,7 @@ from asmpl.core import Constant, code_generator
 from asmpl.wasm import reg_to_wasm 
 
 def get_const_val(x):
-        return ins_array[x].x
+        return code_generator.ins_array[x].x
 
 class reg_instruction:
     ins_array = code_generator.ins_array
@@ -19,11 +19,11 @@ class reg_instruction:
         regtowasm = reg_to_wasm.get_reg_to_stack()
         if x < 0:
             regtowasm.push_constant(get_const_val(x))
-            reg_ins.string = f"push {get_const_val(x)}"
+            reg_ins.string = f"push #{get_const_val(x)}"
 
-        else: 
+        else:
             regtowasm.push_variable(register_allocation[x])
-            reg_ins.string = f"local.get {register_allocation[x]}"
+            reg_ins.string = f"push R{register_allocation[x]}"
         
         return reg_ins
 
@@ -34,34 +34,37 @@ class reg_instruction:
             rx = register_allocation[x]
             reg_ins.r2 = rx
             regtowasm.push_variable(rx)
+            reg_ins.string = f"push R{rx}, "
             if y > 0:
-                ry = register_allocation[x]
+                ry = register_allocation[y]
                 reg_ins.r3 = ry
                 regtowasm.push_variable(ry)
-            
+                reg_ins.string = reg_ins.string + f"push R{ry}"
             else:
                 const_y = ins_array[y].x
                 reg_ins.r3 = const_y
                 regtowasm.push_constant(const_y)
+                reg_ins.string = reg_ins.string + f"push #{const_y}"
         else:
             const_x = ins_array[x].x
             reg_ins.r3 = const_x
             regtowasm.push_constant(const_x)
-
+            reg_ins.string =  f"push #{const_x}, "
             if y > 0:
                 ry = register_allocation[x]
                 reg_ins.r2 = ry
                 regtowasm.push_variable(ry)
-            
+                reg_ins.string = reg_ins.string + f"push R{ry}"
             else:
                 const_y = ins_array[y].x
                 reg_ins.r3 = const_y
                 regtowasm.push_constant(const_y)
-                
+                reg_ins.string = reg_ins.string + f"push #{const_y}\n"
+
         return reg_ins
 
 
-    def create_ins(ins, register_allocation):
+    def create_ins(ins, register_allocation, bb:code_generator.BB):
         reg_to_stack = reg_to_wasm.get_reg_to_stack()
         
         # for while branch block
@@ -83,6 +86,7 @@ class reg_instruction:
 
         # end
         if ins.opcode == "end":
+            reg_to_stack.add_instruction("end")
             reg_ins.string = "end"
             return reg_ins
 
@@ -110,11 +114,13 @@ class reg_instruction:
             else:
                 reg_ins.string = "ret"
 
-            reg_to_stack.add_return_instruction()
+            reg_to_stack.add_instruction("ret")
             return reg_ins
 
         if ins.opcode == "retval":
             reg_ins = reg_instruction.create_move_ins(register_allocation[ins.ins_id], 31)
+            reg_to_stack.save_to_reg(register_allocation[ins.ins_id])
+            reg_ins.string = f"pop R{register_allocation[ins.ins_id]}"
             return reg_ins
         
         if ins.opcode == Constant.ASSIGN_OPCODE:
@@ -124,13 +130,13 @@ class reg_instruction:
         reg_ins.opcode = reg_instruction.opcode(ins)
         # 1 reg ins
         if ins.opcode == "read":
+            reg_to_stack.input(ins.ins_id)
             reg_ins.string= f"{reg_ins.opcode} R{register_allocation[ins.ins_id]}"
             return reg_ins
 
         if ins.opcode == "par":
             r = register_allocation[ins.ins_id]
-            reg_to_stack.get_parameter()
-            reg_to_stack.save_to_reg(r)
+            reg_to_stack.create_or_get_wasm_variable(r)
             reg_ins.string= f"{reg_ins.opcode} R{r}"
             return reg_ins
 
@@ -146,36 +152,24 @@ class reg_instruction:
 
         elif ins.opcode in Constant.BRANCH_OPCODE:
             # bra(7)
-            if ins.y is None:
-                reg_ins.r1 = ins.x
+            if ins.opcode == "bra":
+                reg_to_stack.add_label_instruction("bra", 0)
+                reg_to_stack.add_instruction("end")
+                reg_to_stack.add_instruction("end")
+            
+            if bb.join_type == Constant.WHILE_JOIN_BLOCK:
+                reg_to_stack.add_instruction(ins.opcode)
+                reg_to_stack.add_label_instruction("bra_if", 1)
+
             else:
-                reg_ins.r1 = ins.y
+                reg_to_stack.add_instruction(ins.opcode)
 
             reg_ins.string = f"{reg_ins.opcode} {reg_ins.r1}"
             return reg_ins
 
         # 2 register instruciton
         elif ins.opcode=="cmp":
-            if ins.x < 0:
-                reg_to_stack.push_constant(ins_array[ins.x].x)
-                if ins.y < 0:
-                    reg_to_stack.push_constant(ins_array[ins.y].x)
-                    reg_ins.string = f"{reg_ins.opcode} {ins_array[ins.y].x}, {ins_array[ins.x].x}"
-
-                else:
-                    reg_ins.string = f"{reg_ins.opcode} R{register_allocation[ins.y]}, {ins_array[ins.x].x}"
-                    reg_to_stack.push_variable(ins_array[ins.y])
-                    
-            else:
-                reg_to_stack.push_variable(register_allocation[ins.x])
-                if ins.y < 0:
-                    reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {ins_array[ins.y].x}" 
-                    reg_to_stack.push_constant(ins_array[ins.y].x)
-
-                else:
-                    reg_to_stack.push_variable(ins_array[ins.y])
-                    reg_ins.string=f"{reg_ins.opcode} R{register_allocation[ins.x]}, {register_allocation[ins.y]}"
-
+            reg_instruction.check_xy(reg_ins, register_allocation, ins.x, ins.y)
             return reg_ins
 
         # only for addi bp a_base
@@ -198,6 +192,12 @@ class reg_instruction:
             reg_ins.string = f"{ins.opcode} R{register_allocation[ins.ins_id]}, Mem[R{register_allocation[ins.x]}]"
             return reg_ins
 
+        elif ins.opcode == "move":
+            reg_ins = reg_instruction.check_x(reg_ins, register_allocation, ins.y)
+            reg_to_stack.save_to_reg(register_allocation[ins.x])
+            reg_ins.string  = reg_ins.string + f", pop R{register_allocation[ins.x]}"
+            return reg_ins
+
         # 3 regiter instruction
         reg_ins.r1 = register_allocation[ins.ins_id]
         
@@ -207,7 +207,7 @@ class reg_instruction:
         
         reg_to_stack.add_instruction(reg_ins.opcode)
         reg_to_stack.save_to_reg(reg_ins.r1)
-        reg_ins.string = f"{reg_ins.opcode} R{reg_ins.r1}, R{reg_ins.r2}, {reg_ins.r3}"
+        reg_ins.string = reg_ins.string + f", {ins.opcode} R{reg_ins.r1}"
         return reg_ins
 
     def opcode(ins):
@@ -238,6 +238,7 @@ class reg_instruction:
     def convert_IF_phi_instruction(phi_ins, b_parent, f_parent, b_ssa, f_ssa, register_allocation):
         b_op=-1
         f_op =-1
+        ins_array = code_generator.ins_array
 
         if b_ssa < 0:
             b_op = ins_array[b_ssa].x 
@@ -267,7 +268,8 @@ class reg_instruction:
     def convert_WHILE_phi_instruction(ins, b_parent, f_parent, register_allocation):
         f_op =-1
         f_ssa = ins.x
-
+        ins_array = code_generator.ins_array
+        
         if f_ssa < 0:
             f_op = ins_array[f_ssa].x 
 
@@ -275,14 +277,18 @@ class reg_instruction:
             f_op = register_allocation[f_ssa]
 
         f_parent_move_ins = reg_instruction.create_move_ins(register_allocation[ins.ins_id], f_op)
-        f_parent.table.append(ins.ins_id)
+        
+        f_ins = code_generator.instruction.create_instruction("move", ins.ins_id, ins.x)
+        f_parent.table.append(f_ins.ins_id)
         f_parent.reg_instruction.append(f_parent_move_ins)
 
+        b_ins =code_generator.instruction.create_instruction("move", ins.ins_id, ins.y)
         b_parent_b_ins_idx = reg_instruction.find_branch_instruction_idx(b_parent)
         # for later use
-        b_parent.table.insert(b_parent_b_ins_idx, ins.ins_id)
+        b_parent.table.insert(b_parent_b_ins_idx, b_ins.ins_id)
 
         return
+
 
     def __str__(self):
         # r3 = ""

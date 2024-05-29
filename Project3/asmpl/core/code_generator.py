@@ -1,6 +1,6 @@
 from asmpl.core.Constant import *
 from asmpl.core.tokenizer import Tokenizer
-from asmpl.core import symbol_table, file
+from asmpl.core import symbol_table, file, Constant
 import json
 import copy
 
@@ -71,7 +71,8 @@ def set_str(s):
 class BB:
     def __init__(self, id):
         self.call_foo = None
-        self.type = None
+        self.join_type = None
+        self.if_type = []
         self.table = []
         self.phi_idx = PHI_START_IDX 
         self.var_usage = {}     
@@ -388,8 +389,8 @@ class BB:
             # right opperand
             if i < 0 and ins_array[-i].y == xold:
                 ins_array[-i].y = xnew
-                if ins_array[-i].opcode == ASSIGN_OPCODE:
-                    self.update_var(ins_array[-i].x, xnew)
+                # if ins_array[-i].opcode == ASSIGN_OPCODE:
+                #     self.update_var(ins_array[-i].x, xnew)
 
         return
                 
@@ -671,7 +672,7 @@ class CFG:
                     However, we have visted only one branch. We need to 
                     visit other branch before we visit it's parent
                 '''
-                if self.tree[id].type == IF_HEADER_BLOCK:
+                if IF_HEADER_BLOCK in  self.tree[id].if_type:
                     bid_list = parent + bid_list
                 
                 else:
@@ -688,7 +689,7 @@ class CFG:
             id = id + 1
     
 
-relOp_fall = {EQOP:"bne", NOTEQOP: "beq", GTOP:"ble", GEQOP:"blt", LTOP:"bge", LEQOP:"bgt"}
+relOp_fall = {EQOP:"beq", NOTEQOP: "bne", GTOP:"bgt", GEQOP:"bge", LTOP:"blt", LEQOP:"ble"}
 default_foo = {"InputNum": "read", "OutputNum":"write", "OutputNewLine":"writeNL"}
 cfg = None
 ins_array = {}
@@ -798,18 +799,16 @@ def create_join_bb(prev_bb):
     join_bb.dom_block.append(prev_bb.id) # If header is the dominating block of join block
     phi_i = phi_i + 1
     phi[phi_i] = join_bb
-    join_bb.type = IF_JOIN_BLOCK
+    join_bb.join_type = IF_JOIN_BLOCK
     join_bb.phi_x_operand = True
 
     return join_bb
         
 # work with if statement
 '''
-    1. Remove phi with x == y
     2. Find the id for join bb
-    3. 
 '''
-def add_join_bb(left, right, jump_ins):
+def add_join_bb(left, right, jump_ins, else_first_block):
     join_bb = top_phi()
     join_bb.id = max(left, right) + 1
     cfg.b_id = join_bb.id
@@ -824,12 +823,9 @@ def add_join_bb(left, right, jump_ins):
     cfg.tree[left].table.append(pc)
 
     cfg.add_join_bb(join_bb, left, "fall-through")
-    jump_to = -1
-
-    cfg.tree[right].add_nop()
-    jump_to = max(cfg.tree[right].table)
-
-    ins_array[jump_ins].update_y(jump_to)
+    cfg.tree[else_first_block].add_nop()
+    jump_to = min(cfg.tree[else_first_block].table)
+    ins_array[jump_ins].update_x(jump_to)
     cfg.add_join_bb(join_bb, right, "branch")
 
 def insert_join_bb_while():
@@ -860,7 +856,7 @@ def link_up_while(join_bid, jump_ins):
     ins_array[pc] = instruction(pc, "bra", cfg.tree[join_bid].table[0], None)
     cfg.add_inst_without_cse(pc)
     cfg.add_bb_man(join_bid, get_bid(), "branch")
-    ins_array[jump_ins].update_y(pc+1)
+    ins_array[jump_ins].update_x(pc+1)
     # cfg.tree[cfg.b_id].delete_marked_instruction()
     bb = cfg.create_bb()
     bb.var_stat = dict(cfg.tree[join_bid].var_stat)
@@ -896,7 +892,10 @@ def code_assignment(lsymbol:symbol_table.symbol_info, rsymbol:symbol_table.symbo
     old_addr = cur_bb.get_var_pointer(lsymbol.name)
     lsymbol.addr = new_addr
     cur_bb.update_var(lsymbol.name, new_addr)
-    update_phi(lsymbol, rsymbol, old_addr, new_addr)
+    phi_pc = update_phi(lsymbol, rsymbol, old_addr, new_addr)
+
+    if phi_pc != 0 and new_addr not in cur_bb.table:
+        cur_bb.update_var(lsymbol.name, phi_pc)
 
     return lsymbol
 
@@ -923,7 +922,7 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
             if rsymbol.kind == VAR:
                 join_bb.update_var_usage(rsymbol.name, -temp)
             # update all uses of xold by phi
-            if join_bb.type != IF_JOIN_BLOCK:
+            if join_bb.join_type != IF_JOIN_BLOCK:
                 cfg.update_xold(identifier,join_bb.id, cfg.b_id, xold, pc)
 
             join_bb.update_var_usage(lsymbol.name, temp)
@@ -940,7 +939,7 @@ def update_phi(lsymbol, rsymbol, xold, xnew):
 
         xnew = pc
 
-    return
+    return temp
 
 def code_constant(val):
     dec_neg_pc()
@@ -955,7 +954,9 @@ def code_func_call(name, arg_list):
         inc_pc()
         addr = None
         if name == "write":
-            addr = arg_list[0]
+            addr = arg_list[0].addr
+            if arg_list[0].kind == Constant.VAR:
+                cfg.update_var_usage(arg_list[0].name, pc)
         
         ins_array[pc] = instruction(pc, name, addr, None)
         cfg.add_inst_without_cse(pc)
@@ -969,6 +970,16 @@ def code_func_call(name, arg_list):
         cfg.add_inst_without_cse(pc)
 
     return pc
+
+def code_func_argument(args_list):
+    for arg in args_list:
+        inc_pc()
+        ins_array[pc] = instruction(pc, "arg", arg.addr, None)
+        cfg.add_inst_without_cse(pc)
+        if arg.kind == Constant.VAR:
+            cfg.update_var_usage(arg.name, pc)
+    
+    return 
 
 def code_func_parameter(param_list):
     for param in param_list:
@@ -985,14 +996,6 @@ def code_func_parameter(param_list):
     return
         
     return param_list
-
-def code_func_argument(args_list):
-    for arg in args_list:
-        inc_pc()
-        ins_array[pc] = instruction(pc, "arg", arg, None)
-        cfg.add_inst_without_cse(pc)
-    
-    return 
 
 def compute(opcode, x, y):
     if x.val is None:
@@ -1044,6 +1047,12 @@ def code_else(prev_bb):
     cfg.add_bb_man(bb.id, prev_bb, "branch")
     return bb.id
 
+def code_fi():
+    inc_pc()
+    ins_array[pc] = instruction(pc, "end", None, None)
+    cfg.add_inst_without_cse(pc)
+    return 
+
 def code_relation(resL, resR, relOp):
     inc_pc()
     # Todo: check whether they are variable or not
@@ -1054,10 +1063,12 @@ def code_relation(resL, resR, relOp):
     ins_array[pc] = instruction(pc, "cmp", addrL, addrR)
     cfg.add_instruction(pc)
     inc_pc()
-    ins = instruction(pc, relOp_fall[relOp], pc-1, "follow")
+    ins = instruction(pc, relOp_fall[relOp], None, None)
     ins_array[pc] = ins
     cfg.add_inst_without_cse(pc) 
 
+    if cfg.tree[cfg.get_bid()].join_type == Constant.WHILE_JOIN_BLOCK:
+        ins.opcode = Constant.relOp_while[relOp]
 
     return pc
 
@@ -1177,7 +1188,10 @@ def code_get_var_addr(symbol, load_array=True):
     return symbol
 
 def code_return(symbol):
-    addr = symbol.addr
+    addr = None
+    if symbol:
+        addr = symbol.addr
+
     inc_pc()
     ins_array[pc] = instruction(pc, "ret", addr, None)
     cfg.add_inst_without_cse(pc)
@@ -1192,9 +1206,9 @@ def code_return_val(addr):
 
 def code_end():
     cse()
-    inc_pc()
-    ins_array[pc] = instruction(pc, "end", None, None)
-    cfg.add_inst_without_cse(pc)
+    # inc_pc()
+    # ins_array[pc] = instruction(pc, "end", None, None)
+    # cfg.add_inst_without_cse(pc)
 
 def cse():
     if CSE:
