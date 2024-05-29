@@ -270,7 +270,7 @@ def convert_to_reg_instruction(cfg):
         elif Constant.ELSE_BLOCK in bb.if_type:
             reg_to_stack.add_instruction("_else")
 
-        elif bb.join_type == Constant.WHILE_JOIN_BLOCK:
+        if bb.join_type == Constant.WHILE_JOIN_BLOCK:
             reg_to_stack.add_instruction("block")# label to break out of loop
             reg_to_stack.add_instruction("void")
             reg_to_stack.add_instruction("loop") # label to jump in to the loop

@@ -1,7 +1,7 @@
 (module
-  (import "console" "log" (func (param i32)))
+  (import "console" "log" (func (param i64)))
   (func (export "main")
-    i32.const 1
-    i32.const 2
-    i32.add
+    i64.const 1
+    i64.const 2
+    i64.add
     call 0))

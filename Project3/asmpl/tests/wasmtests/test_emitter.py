@@ -26,8 +26,8 @@ class TestEmitter(unittest.TestCase):
         self.assertEqual(buffer, buffer1)
 
     def test_add_function_type(self):
-        buffer = bytearray([Types.func.value, 2, Types.i32.value, Types.i64.value,  1, Types.i32.value])
-        buffer1 = self.emitter.add_function_type([Types.i32.value, Types.i64.value], [Types.i32.value])
+        buffer = bytearray([Types.func.value, 2, Types.i64.value, Types.i64.value,  1, Types.i64.value])
+        buffer1 = self.emitter.add_function_type([Types.i64.value, Types.i64.value], [Types.i64.value])
 
         self.assertEqual(buffer, buffer1)
 
@@ -38,7 +38,7 @@ class TestEmitter(unittest.TestCase):
         # ; func type 0
         # 000000b: 60                                        ; func
         # 000000c: 01                                        ; num params
-        # 000000d: 7f                                        ; i32
+        # 000000d: 7f                                        ; i64
         # 000000e: 00                                        ; num results
         buffer = bytearray([SectionID._import.value, 0xf, 1, 7]) + b"console"+ bytearray([3]) + b"log" + bytearray([ExportKind.func.value, 0])
         buffer1 = bytearray([SectionID._type.value, 5, 1, Types.func.value, 1, 0x7f, 0])
@@ -68,7 +68,7 @@ class TestEmitter(unittest.TestCase):
 # ; func type 0
 # 000000b: 60                                        ; func
 # 000000c: 01                                        ; num params
-# 000000d: 7f                                        ; i32
+# 000000d: 7f                                        ; i64
 # 000000e: 00                                        ; num results
 # ; func type 1
 # 000000f: 60                                        ; func
@@ -109,11 +109,11 @@ class TestEmitter(unittest.TestCase):
 # ; function body 0
 # 0000033: 00                                        ; func body size (guess)
 # 0000034: 00                                        ; local decl count
-# 0000035: 41                                        ; i32.const
-# 0000036: 2b                                        ; i32 literal
-# 0000037: 41                                        ; i32.const
-# 0000038: 36                                        ; i32 literal
-# 0000039: 6a                                        ; i32.add
+# 0000035: 41                                        ; i64.const
+# 0000036: 2b                                        ; i64 literal
+# 0000037: 41                                        ; i64.const
+# 0000038: 36                                        ; i64 literal
+# 0000039: 6a                                        ; i64.add
 # 000003a: 10                                        ; call
 # 000003b: 00                                        ; function index
 # 000003c: 0b                                        ; end

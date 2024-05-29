@@ -140,6 +140,13 @@ class BB:
 
     def add_parent(self, id):
         self.prev.append(id)
+    
+    def is_id_greater_than_parent(self):
+        for i in self.next:
+            if self.id >= i:
+                return True
+
+        return False
 
     def get_var_pointer(self, var):
         return self.var_stat.get(var, None)
@@ -894,6 +901,10 @@ def code_assignment(lsymbol:symbol_table.symbol_info, rsymbol:symbol_table.symbo
     cur_bb.update_var(lsymbol.name, new_addr)
     phi_pc = update_phi(lsymbol, rsymbol, old_addr, new_addr)
 
+    '''If the var state is not in the cur_bb's instruction table
+        then update the state with the phi pc. Beacuse phi pc is
+        the new state.
+    '''
     if phi_pc != 0 and new_addr not in cur_bb.table:
         cur_bb.update_var(lsymbol.name, phi_pc)
 
@@ -1141,7 +1152,7 @@ def code_array_load(avar):
     # always load loop header load.
     # Never ever try to store this load if 
     # you don't want to make your life hell
-    if cfg.tree[cfg.b_id].type == WHILE_JOIN_BB:
+    if cfg.tree[cfg.b_id].join_type == Constant.WHILE_JOIN_BLOCK:
         avar.addr = array_load(avar)
         return avar
 

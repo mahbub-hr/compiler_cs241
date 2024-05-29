@@ -66,7 +66,7 @@ class reg_instruction:
 
     def create_ins(ins, register_allocation, bb:code_generator.BB):
         reg_to_stack = reg_to_wasm.get_reg_to_stack()
-        
+        ins_array = code_generator.ins_array
         # for while branch block
         if ins.opcode == "phi":
             b_op = -1
@@ -153,9 +153,11 @@ class reg_instruction:
         elif ins.opcode in Constant.BRANCH_OPCODE:
             # bra(7)
             if ins.opcode == "bra":
-                reg_to_stack.add_label_instruction("bra", 0)
-                reg_to_stack.add_instruction("end")
-                reg_to_stack.add_instruction("end")
+                if bb.is_id_greater_than_parent():
+                    '''WHILE branch'''
+                    reg_to_stack.add_label_instruction("bra", 0)
+                    reg_to_stack.add_instruction("end")
+                    reg_to_stack.add_instruction("end")
             
             if bb.join_type == Constant.WHILE_JOIN_BLOCK:
                 reg_to_stack.add_instruction(ins.opcode)
@@ -254,13 +256,15 @@ class reg_instruction:
 
         b_parent_move_ins = reg_instruction.create_move_ins(register_allocation[phi_ins.ins_id], b_op) 
         f_parent_move_ins = reg_instruction.create_move_ins(register_allocation[phi_ins.ins_id], f_op)
+        b_ins =code_generator.instruction.create_instruction("move", phi_ins.ins_id, phi_ins.x)
+        f_ins = code_generator.instruction.create_instruction("move", phi_ins.ins_id, phi_ins.y)
 
         b_parent_b_ins_idx = reg_instruction.find_branch_instruction_idx(b_parent)
 
-        b_parent.table.insert(b_parent_b_ins_idx, phi_ins.ins_id)
+        b_parent.table.insert(b_parent_b_ins_idx, b_ins.ins_id)
         b_parent.reg_instruction.insert(b_parent_b_ins_idx, b_parent_move_ins)
         
-        f_parent.table.append(phi_ins.ins_id)
+        f_parent.table.append(f_ins.ins_id)
         f_parent.reg_instruction.append(f_parent_move_ins)
         
         return

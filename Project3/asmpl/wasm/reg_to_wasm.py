@@ -1,4 +1,5 @@
 import sys
+import leb128
 from asmpl.wasm.emitter import Emitter
 from asmpl.wasm.format import Types, Opcodes, MAP_SSA_TO_WASM
 from asmpl.core import symbol_table, code_generator, file, Constant
@@ -28,7 +29,7 @@ class WasmFunc:
 
     #     return 
 
-    def add_local(self, _type:Types.i32.value):
+    def add_local(self, _type:Types.i64.value):
         if _type not in self.local_type:
             self.local_type[_type] = 0
 
@@ -49,7 +50,7 @@ class WasmFunc:
             buffer.append(self.local_type[_type])
             buffer.append(_type)
 
-        buffer = bytearray([len(self.local_type)]) + buffer + self.body
+        buffer = leb128.u.encode(len(self.local_type)) + buffer + self.body
 
         return buffer
         
@@ -72,10 +73,10 @@ class RegToStackMachineCode:
             self.export_main_func()
 
         self.cur_function = WasmFunc(name, self.emitter.get_num_of_types())
-        self.cur_function.add_param([Types.i32.value]*len(params))
+        self.cur_function.add_param([Types.i64.value]*len(params))
         result = []
         if returns:
-            result.append(Types.i32.value)
+            result.append(Types.i64.value)
 
         self.cur_function.add_result(result)
         self.reg_to_var = {}
@@ -119,7 +120,8 @@ class RegToStackMachineCode:
         return buffer
 
     def push_constant(self, const:int):
-        arr = bytearray([Opcodes.i32_const.value, const]) 
+
+        arr = bytearray([Opcodes.i64_const.value]) + leb128.i.encode(const)
         self.cur_function.add_instruction(arr)
     
     def push_variable(self, reg_no):
@@ -142,7 +144,7 @@ class RegToStackMachineCode:
             return self.reg_to_var[reg_no]
 
         self.reg_to_var[reg_no] = self.cur_var_idx
-        self.cur_function.add_local(Types.i32.value)
+        self.cur_function.add_local(Types.i64.value)
         self.cur_var_idx = self.cur_var_idx + 1
 
         return self.cur_var_idx-1

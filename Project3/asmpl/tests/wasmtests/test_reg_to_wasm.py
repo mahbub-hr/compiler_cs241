@@ -41,8 +41,8 @@ class TestRegToWasm(unittest.TestCase):
 
     def test_add_local_fun(self):
         foo = self.regtowasm.add_local_func(["a"], True)
-        self.assertEqual(foo.params, [format.Types.i32.value])
-        self.assertEqual(foo.results, [format.Types.i32.value])
+        self.assertEqual(foo.params, [format.Types.i64.value])
+        self.assertEqual(foo.results, [format.Types.i64.value])
         self.assertEqual(self.regtowasm.reg_to_var, {})
         self.assertEqual(self.regtowasm.cur_var_idx, 0)
 

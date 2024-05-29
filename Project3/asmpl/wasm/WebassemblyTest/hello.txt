@@ -7,7 +7,7 @@
 ; func type 0
 000000b: 60                                        ; func
 000000c: 01                                        ; num params
-000000d: 7f                                        ; i32
+000000d: 7f                                        ; i64
 000000e: 00                                        ; num results
 ; func type 1
 000000f: 60                                        ; func
@@ -48,11 +48,11 @@
 ; function body 0
 0000033: 00                                        ; func body size (guess)
 0000034: 00                                        ; local decl count
-0000035: 41                                        ; i32.const
-0000036: 2b                                        ; i32 literal
-0000037: 41                                        ; i32.const
-0000038: 36                                        ; i32 literal
-0000039: 6a                                        ; i32.add
+0000035: 41                                        ; i64.const
+0000036: 2b                                        ; i64 literal
+0000037: 41                                        ; i64.const
+0000038: 36                                        ; i64 literal
+0000039: 6a                                        ; i64.add
 000003a: 10                                        ; call
 000003b: 00                                        ; function index
 000003c: 0b                                        ; end
