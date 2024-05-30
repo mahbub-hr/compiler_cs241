@@ -14,13 +14,9 @@ var result;
   };
 
 {
-  let x <- 1;
+  let x <- 5;
   let y <- 0;
 
-  while y < 5 do
-    let a[y] <- call factorial(y);
-    let y <- y + 1;
-  od;
 
   let y <- call factorial(x);
   call OutputNum(y);

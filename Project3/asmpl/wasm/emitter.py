@@ -33,7 +33,14 @@ class Section:
         return
 
     def validate(self):
-        pass
+        assert self.buffer[SectionFormat.id.value] == SectionID._code.value
+        size = self.buffer[SectionFormat.size.value]
+        num_of_entry = self.buffer[SectionFormat.number_of_entry.value]
+        content = self.buffer[SectionFormat.cont_start.value: ]
+        assert size == len(self.buffer[(SectionFormat.size.value + 1):])
+        assert num_of_entry == self.num_of_entry
+
+        return
 
 class CodeSection(Section):
     
@@ -42,13 +49,9 @@ class CodeSection(Section):
         return
 
     def validate(self):
-        assert self.buffer[SectionFormat.id.value] == SectionID._code.value
-        size = self.buffer[SectionFormat.size.value]
-        num_of_entry = self.buffer[SectionFormat.number_of_entry.value]
-        content = self.buffer[SectionFormat.cont_start.value: ]
-
-        assert size == len(self.buffer[(SectionFormat.size.value + 1):])
-        assert num_of_entry == self.num_of_entry
+        
+        super().validate()
+        
         id = 0
         while id < num_of_entry:
             self.validate_single_function(content)
